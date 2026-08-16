@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="h-full flex flex-col overflow-hidden">
+      <body className="h-full flex flex-col overflow-hidden" suppressHydrationWarning>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>
