@@ -10,11 +10,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function DocBRenderer({ doc }: { doc: DocB }) {
+  const roles = doc.roles ?? [];
+  const screens = doc.screens ?? [];
+  const features = doc.features ?? [];
+
   return (
     <div className="flex flex-col gap-6">
       <Field label="Roles">
         <div className="flex flex-col gap-3">
-          {doc.roles.map((role, i) => (
+          {roles.map((role, i) => (
             <div key={i}>
               <p className="text-sm font-medium text-zinc-900">{role.name}</p>
               <p className="text-sm text-zinc-700">{role.description}</p>
@@ -25,11 +29,11 @@ export default function DocBRenderer({ doc }: { doc: DocB }) {
 
       <Field label="Screens">
         <div className="flex flex-col gap-4">
-          {doc.screens.map((screen, i) => (
+          {screens.map((screen, i) => (
             <div key={i} className="rounded-lg border border-zinc-200 p-3">
               <p className="text-sm font-medium text-zinc-900">{screen.name}</p>
               <p className="mt-1 text-sm text-zinc-700">{screen.description}</p>
-              {screen.features.length > 0 && (
+              {screen.features && screen.features.length > 0 && (
                 <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-zinc-700">
                   {screen.features.map((f, j) => (
                     <li key={j}>{f}</li>
@@ -47,7 +51,7 @@ export default function DocBRenderer({ doc }: { doc: DocB }) {
 
       <Field label="Features">
         <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-800">
-          {doc.features.map((f, i) => (
+          {features.map((f, i) => (
             <li key={i}>{f}</li>
           ))}
         </ul>

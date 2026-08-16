@@ -9,8 +9,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function List({ items }: { items: string[] }) {
-  if (items.length === 0) return <p className="text-sm text-zinc-400 italic">None noted</p>;
+function List({ items }: { items: string[] | null | undefined }) {
+  if (!items || items.length === 0) return <p className="text-sm text-zinc-400 italic">None noted</p>;
   return (
     <ul className="list-disc space-y-1 pl-5 text-sm text-zinc-800">
       {items.map((item, i) => (

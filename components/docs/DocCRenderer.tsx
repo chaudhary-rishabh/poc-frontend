@@ -10,6 +10,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export default function DocCRenderer({ doc }: { doc: DocC }) {
+  const techStack = doc.tech_stack ?? [];
+  const apiRoutes = doc.api_routes ?? [];
+
   return (
     <div className="flex flex-col gap-6">
       <Field label="Database Schema">
@@ -20,7 +23,7 @@ export default function DocCRenderer({ doc }: { doc: DocC }) {
 
       <Field label="Tech Stack">
         <div className="flex flex-wrap gap-2">
-          {doc.tech_stack.map((tech, i) => (
+          {techStack.map((tech, i) => (
             <span key={i} className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs text-zinc-700">
               {tech}
             </span>
@@ -30,7 +33,7 @@ export default function DocCRenderer({ doc }: { doc: DocC }) {
 
       <Field label="API Routes">
         <div className="flex flex-col divide-y divide-zinc-200 rounded-lg border border-zinc-200">
-          {doc.api_routes.map((route, i) => (
+          {apiRoutes.map((route, i) => (
             <div key={i} className="flex items-start gap-3 p-2.5 text-sm">
               <span className="shrink-0 rounded bg-zinc-900 px-1.5 py-0.5 font-mono text-[11px] text-white">
                 {route.method}
