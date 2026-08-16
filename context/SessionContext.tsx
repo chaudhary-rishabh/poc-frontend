@@ -56,7 +56,7 @@ function makeMessage(role: MessageRole, text: string, actions?: ChatMessage["act
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [provider, setProvider] = useState<Provider>("anthropic");
+  const [provider, setProvider] = useState<Provider>("deepseek");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [docs, setDocs] = useState<Record<DocType, DocEntry>>(initialDocs);
   const [activeDoc, setActiveDoc] = useState<DocType | null>(null);
