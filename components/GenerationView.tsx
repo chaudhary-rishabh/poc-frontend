@@ -1,0 +1,149 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getSession } from "@/lib/apiClient";
+import type { DocStatus, DocType, SessionState } from "@/lib/types";
+import ArtifactContent from "./ArtifactContent";
+import ArtifactsPanel from "./ArtifactsPanel";
+
+const statusLabel: Record<DocStatus, string> = {
+  not_generated: "not generated yet",
+  draft: "draft",
+  locked: "locked",
+};
+
+const statusStyle: Record<DocStatus, string> = {
+  not_generated: "bg-transparent text-zinc-600 border-zinc-800",
+  draft: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+  locked: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+};
+
+function StatusPill({ label, status }: { label: string; status: DocStatus }) {
+  return (
+    <span className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${statusStyle[status]}`}>
+      <span className="font-medium">{label}</span>
+      <span className="text-[11px] opacity-80">{statusLabel[status]}</span>
+    </span>
+  );
+}
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+export default function GenerationView({ sessionId }: { sessionId: string }) {
+  const [session, setSession] = useState<SessionState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [activeArtifact, setActiveArtifact] = useState<DocType | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getSession(sessionId)
+      .then((data) => {
+        if (cancelled) return;
+        setSession(data);
+        if (data.doc_a) setActiveArtifact("docA");
+      })
+      .catch(() => {
+        if (!cancelled) setError("Session not found, or the backend is unreachable.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
+
+  if (error) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0a0a0a] text-center">
+        <p className="text-zinc-300">{error}</p>
+        <Link href="/projects" className="text-sm text-zinc-500 underline hover:text-zinc-300">
+          Back to projects
+        </Link>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#0a0a0a]">
+        <p className="text-sm text-zinc-500">Loading session…</p>
+      </div>
+    );
+  }
+
+  const activeData =
+    activeArtifact === "docA"
+      ? session.doc_a
+      : activeArtifact === "docB"
+        ? session.doc_b
+        : activeArtifact === "docC"
+          ? session.doc_c
+          : activeArtifact === "poc"
+            ? session.poc_html
+            : null;
+
+  return (
+    <div className="flex h-full flex-col bg-[#0a0a0a]">
+      <div className="flex items-center gap-2 border-b border-zinc-900 px-4 py-3">
+        <Link href="/projects" className="text-xs text-zinc-500 hover:text-zinc-300">
+          ← Projects
+        </Link>
+      </div>
+
+      <div className="flex min-h-0 flex-1">
+        <div className="flex w-[32%] min-w-[300px] flex-col gap-5 overflow-y-auto border-r border-zinc-900 px-5 py-5">
+          <div>
+            <h1 className="text-base font-medium text-zinc-100">
+              {session.name ?? "Untitled session"}
+            </h1>
+            <p className="mt-1 text-xs text-zinc-600">{session.id}</p>
+          </div>
+
+          <div className="flex flex-col gap-1 text-xs text-zinc-500">
+            <span>Created {formatDate(session.created_at)}</span>
+            <span>Updated {formatDate(session.updated_at)}</span>
+            <span>Provider: {session.provider}</span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <StatusPill label="Doc A" status={session.doc_a_status ?? "not_generated"} />
+            <StatusPill label="Doc B" status={session.doc_b ? "locked" : "not_generated"} />
+            <StatusPill label="Doc C" status={session.doc_c ? "locked" : "not_generated"} />
+            <StatusPill label="POC" status={session.poc_html ? "locked" : "not_generated"} />
+          </div>
+
+          {session.combined_text && (
+            <div className="flex flex-col gap-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Original Input
+              </h3>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">
+                {session.combined_text}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-1">
+          {activeArtifact && activeData ? (
+            <div className="flex-1 overflow-y-auto">
+              <ArtifactContent type={activeArtifact} data={activeData} />
+            </div>
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-zinc-600">Select an artifact to preview it here.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="w-[300px] shrink-0">
+          <ArtifactsPanel session={session} activeArtifact={activeArtifact} onSelect={setActiveArtifact} />
+        </div>
+      </div>
+    </div>
+  );
+}

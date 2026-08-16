@@ -116,10 +116,20 @@ export interface SessionState {
   combined_text: string | null;
   provider: Provider;
   doc_a: DocA | null;
-  doc_a_status: DocStatus;
+  doc_a_status: DocStatus | null;
   doc_b: DocB | null;
   doc_c: DocC | null;
   poc_html: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface SessionSummary {
+  id: string;
+  name: string | null;
+  created_at: string;
+  doc_a_status: DocStatus | null;
+  has_doc_b: boolean;
+  has_doc_c: boolean;
+  has_poc: boolean;
 }

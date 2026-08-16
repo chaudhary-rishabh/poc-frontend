@@ -7,6 +7,7 @@ import type {
   PocResponse,
   Provider,
   SessionState,
+  SessionSummary,
 } from "./types";
 
 const apiClient = axios.create({
@@ -88,6 +89,11 @@ export async function generatePoc(
 
 export async function getSession(sessionId: string): Promise<SessionState> {
   const { data } = await apiClient.get<SessionState>(`/session/${sessionId}`);
+  return data;
+}
+
+export async function listSessions(): Promise<SessionSummary[]> {
+  const { data } = await apiClient.get<SessionSummary[]>("/sessions");
   return data;
 }
 

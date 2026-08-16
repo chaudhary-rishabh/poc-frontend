@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import { useSession } from "@/context/SessionContext";
-import type { DocA, DocB, DocC } from "@/lib/types";
-import DocARenderer from "./docs/DocARenderer";
-import DocBRenderer from "./docs/DocBRenderer";
-import DocCRenderer from "./docs/DocCRenderer";
+import ArtifactContent, { pinPocCdnVersions } from "./ArtifactContent";
 
 const badgeLabel = {
   docA: "Discovery Report · Doc A",
@@ -13,28 +10,6 @@ const badgeLabel = {
   docC: "Architecture Doc · Doc C",
   poc: "Proof of Concept",
 } as const;
-
-// Pin unpinned CDN script URLs to known-working major versions. The POC
-// template can reference "@babel/standalone" (no version), which resolves to
-// whatever unpkg currently serves as latest — babel-standalone 8 dropped
-// support for auto-executing plain `<script type="text/babel">` tags the way
-// this template expects, leaving the mount point empty. Pinning to major 7
-// keeps the classic script-tag transform working.
-function pinPocCdnVersions(html: string): string {
-  return html
-    .replace(
-      /https:\/\/unpkg\.com\/@babel\/standalone(?:@[^/"'\s]+)?\/babel(?:\.min)?\.js/g,
-      "https://unpkg.com/@babel/standalone@7/babel.min.js"
-    )
-    .replace(
-      /https:\/\/unpkg\.com\/react(?:@[^/"'\s]+)?\/umd\/react\.development\.js/g,
-      "https://unpkg.com/react@18/umd/react.development.js"
-    )
-    .replace(
-      /https:\/\/unpkg\.com\/react-dom(?:@[^/"'\s]+)?\/umd\/react-dom\.development\.js/g,
-      "https://unpkg.com/react-dom@18/umd/react-dom.development.js"
-    );
-}
 
 export default function DocViewer() {
   const { activeDoc, docs, closeDoc, approveDocA, generatePoc, isBusy } = useSession();
@@ -136,23 +111,7 @@ export default function DocViewer() {
       )}
 
       <div className={activeDoc === "poc" ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto"}>
-        {activeDoc === "poc" ? (
-          <iframe
-            key={(entry.data as string).length}
-            srcDoc={pinPocCdnVersions(entry.data as string)}
-            title="Generated POC preview"
-            className="block h-full min-h-[80vh] w-full border-0 bg-white"
-            sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
-          />
-        ) : (
-          <div className="flex justify-center px-6 py-8">
-            <div className="w-full max-w-2xl rounded-xl bg-white p-8 shadow-2xl">
-              {activeDoc === "docA" && <DocARenderer doc={entry.data as DocA} />}
-              {activeDoc === "docB" && <DocBRenderer doc={entry.data as DocB} />}
-              {activeDoc === "docC" && <DocCRenderer doc={entry.data as DocC} />}
-            </div>
-          </div>
-        )}
+        <ArtifactContent type={activeDoc} data={entry.data} />
       </div>
     </div>
   );
