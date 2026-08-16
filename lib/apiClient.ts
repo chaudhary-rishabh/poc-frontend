@@ -1,10 +1,10 @@
 import axios from "axios";
 import type {
-  DocA,
-  DocB,
-  DocC,
+  DiscoveryResponse,
+  DocBResponse,
+  DocCResponse,
   IngestResponse,
-  PocDoc,
+  PocResponse,
   Provider,
   SessionState,
 } from "./types";
@@ -32,8 +32,8 @@ export async function ingest({ text, files }: IngestPayload): Promise<IngestResp
 export async function generateDiscovery(
   sessionId: string,
   provider: Provider
-): Promise<DocA> {
-  const { data } = await apiClient.post<DocA>("/discovery", {
+): Promise<DiscoveryResponse> {
+  const { data } = await apiClient.post<DiscoveryResponse>("/discovery", {
     session_id: sessionId,
     provider,
   });
@@ -44,8 +44,8 @@ export async function approveDocA(
   sessionId: string,
   action: "approve" | "regenerate",
   provider: Provider
-): Promise<DocA> {
-  const { data } = await apiClient.post<DocA>("/approve/doc-a", {
+): Promise<DiscoveryResponse> {
+  const { data } = await apiClient.post<DiscoveryResponse>("/approve/doc-a", {
     session_id: sessionId,
     action,
     provider,
@@ -56,8 +56,8 @@ export async function approveDocA(
 export async function generateDocB(
   sessionId: string,
   provider: Provider
-): Promise<DocB> {
-  const { data } = await apiClient.post<DocB>("/generate/doc-b", {
+): Promise<DocBResponse> {
+  const { data } = await apiClient.post<DocBResponse>("/generate/doc-b", {
     session_id: sessionId,
     provider,
   });
@@ -67,8 +67,8 @@ export async function generateDocB(
 export async function generateDocC(
   sessionId: string,
   provider: Provider
-): Promise<DocC> {
-  const { data } = await apiClient.post<DocC>("/generate/doc-c", {
+): Promise<DocCResponse> {
+  const { data } = await apiClient.post<DocCResponse>("/generate/doc-c", {
     session_id: sessionId,
     provider,
   });
@@ -78,8 +78,8 @@ export async function generateDocC(
 export async function generatePoc(
   sessionId: string,
   provider: Provider
-): Promise<PocDoc> {
-  const { data } = await apiClient.post<PocDoc>("/generate/poc", {
+): Promise<PocResponse> {
+  const { data } = await apiClient.post<PocResponse>("/generate/poc", {
     session_id: sessionId,
     provider,
   });

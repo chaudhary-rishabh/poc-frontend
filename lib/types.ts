@@ -19,39 +19,51 @@ export interface DocBRole {
 
 export interface DocBScreen {
   name: string;
-  description: string;
-  features: string[];
+  purpose: string;
+  key_elements: string[];
 }
 
 export interface DocB {
   roles: DocBRole[];
   screens: DocBScreen[];
-  flow: string;
+  flow: string[];
   features: string[];
+}
+
+export interface DocCTechStack {
+  frontend: string;
+  backend: string;
+  database: string;
+}
+
+export interface DocCSchemaField {
+  name: string;
+  type: string;
+}
+
+export interface DocCSchemaTable {
+  table: string;
+  fields: DocCSchemaField[];
 }
 
 export interface DocCApiRoute {
   method: string;
   path: string;
-  description: string;
+  purpose: string;
 }
 
 export interface DocC {
-  db_schema: string;
-  tech_stack: string[];
+  tech_stack: DocCTechStack;
+  db_schema: DocCSchemaTable[];
   api_routes: DocCApiRoute[];
   folder_structure: string;
-}
-
-export interface PocDoc {
-  html: string;
 }
 
 export interface DocEntry {
   type: DocType;
   label: string;
   status: DocStatus;
-  data: DocA | DocB | DocC | PocDoc | null;
+  data: DocA | DocB | DocC | string | null;
 }
 
 export type MessageRole = "user" | "assistant" | "system";
@@ -78,16 +90,36 @@ export interface IngestResponse {
   combined_text: string;
 }
 
+export interface DiscoveryResponse {
+  session_id: string;
+  doc_a: DocA;
+  doc_a_status: DocStatus;
+}
+
+export interface DocBResponse {
+  session_id: string;
+  doc_b: DocB;
+}
+
+export interface DocCResponse {
+  session_id: string;
+  doc_c: DocC;
+}
+
+export interface PocResponse {
+  html: string;
+}
+
 export interface SessionState {
-  session_id: string | null;
+  id: string;
+  name: string | null;
   combined_text: string | null;
-  docA: DocA | null;
-  docAStatus: DocStatus;
-  docB: DocB | null;
-  docBStatus: DocStatus;
-  docC: DocC | null;
-  docCStatus: DocStatus;
-  poc: PocDoc | null;
-  pocStatus: DocStatus;
-  messages: ChatMessage[];
+  provider: Provider;
+  doc_a: DocA | null;
+  doc_a_status: DocStatus;
+  doc_b: DocB | null;
+  doc_c: DocC | null;
+  poc_html: string | null;
+  created_at: string;
+  updated_at: string;
 }

@@ -12,6 +12,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export default function DocBRenderer({ doc }: { doc: DocB }) {
   const roles = doc.roles ?? [];
   const screens = doc.screens ?? [];
+  const flow = doc.flow ?? [];
   const features = doc.features ?? [];
 
   return (
@@ -32,10 +33,10 @@ export default function DocBRenderer({ doc }: { doc: DocB }) {
           {screens.map((screen, i) => (
             <div key={i} className="rounded-lg border border-zinc-200 p-3">
               <p className="text-sm font-medium text-zinc-900">{screen.name}</p>
-              <p className="mt-1 text-sm text-zinc-700">{screen.description}</p>
-              {screen.features && screen.features.length > 0 && (
+              <p className="mt-1 text-sm text-zinc-700">{screen.purpose}</p>
+              {screen.key_elements && screen.key_elements.length > 0 && (
                 <ul className="mt-2 list-disc space-y-0.5 pl-5 text-sm text-zinc-700">
-                  {screen.features.map((f, j) => (
+                  {screen.key_elements.map((f, j) => (
                     <li key={j}>{f}</li>
                   ))}
                 </ul>
@@ -46,7 +47,11 @@ export default function DocBRenderer({ doc }: { doc: DocB }) {
       </Field>
 
       <Field label="Flow">
-        <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-800">{doc.flow}</p>
+        <ol className="list-decimal space-y-1 pl-5 text-sm leading-relaxed text-zinc-800">
+          {flow.map((step, i) => (
+            <li key={i}>{step}</li>
+          ))}
+        </ol>
       </Field>
 
       <Field label="Features">

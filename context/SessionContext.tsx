@@ -11,7 +11,6 @@ import {
 import * as api from "@/lib/apiClient";
 import type {
   ChatMessage,
-  DocA,
   DocEntry,
   DocType,
   MessageRole,
@@ -98,8 +97,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!sessionId) return;
     setIsBusy(true);
     try {
-      const docA = await api.generateDiscovery(sessionId, provider);
-      setDoc("docA", { status: "draft", data: docA });
+      const res = await api.generateDiscovery(sessionId, provider);
+      setDoc("docA", { status: res.doc_a_status, data: res.doc_a });
       setActiveDoc("docA");
       appendMessage("assistant", "Here's the Discovery Report (Doc A). Review it and approve or regenerate.");
     } catch {
@@ -114,14 +113,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const docA: DocA = await api.approveDocA(sessionId, action, provider);
+        const res = await api.approveDocA(sessionId, action, provider);
+        setDoc("docA", { status: res.doc_a_status, data: res.doc_a });
         if (action === "approve") {
-          setDoc("docA", { status: "locked", data: docA });
           appendMessage("assistant", "Doc A is locked in. Ready for the next step?", [
             { kind: "generate_doc_b" },
           ]);
         } else {
-          setDoc("docA", { status: "draft", data: docA });
           appendMessage("assistant", "Regenerated the Discovery Report. Take another look.");
         }
       } catch {
@@ -137,8 +135,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!sessionId) return;
     setIsBusy(true);
     try {
-      const docB = await api.generateDocB(sessionId, provider);
-      setDoc("docB", { status: "draft", data: docB });
+      const res = await api.generateDocB(sessionId, provider);
+      setDoc("docB", { status: "locked", data: res.doc_b });
       setActiveDoc("docB");
       appendMessage("assistant", "Here's the UX & Flow Doc (Doc B). Ready to move on?", [
         { kind: "generate_doc_c" },
@@ -154,8 +152,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!sessionId) return;
     setIsBusy(true);
     try {
-      const docC = await api.generateDocC(sessionId, provider);
-      setDoc("docC", { status: "draft", data: docC });
+      const res = await api.generateDocC(sessionId, provider);
+      setDoc("docC", { status: "locked", data: res.doc_c });
       setActiveDoc("docC");
       appendMessage("assistant", "Here's the Architecture Doc (Doc C). Ready for the POC?", [
         { kind: "generate_poc" },
@@ -171,8 +169,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!sessionId) return;
     setIsBusy(true);
     try {
-      const poc = await api.generatePoc(sessionId, provider);
-      setDoc("poc", { status: "locked", data: poc });
+      const res = await api.generatePoc(sessionId, provider);
+      setDoc("poc", { status: "locked", data: res.html });
       setActiveDoc("poc");
       appendMessage("assistant", "Here's your interactive POC.");
     } catch {
