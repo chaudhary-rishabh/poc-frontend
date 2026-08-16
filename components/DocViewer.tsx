@@ -37,7 +37,7 @@ function pinPocCdnVersions(html: string): string {
 }
 
 export default function DocViewer() {
-  const { activeDoc, docs, closeDoc, approveDocA, isBusy } = useSession();
+  const { activeDoc, docs, closeDoc, approveDocA, generatePoc, isBusy } = useSession();
   const [expanded, setExpanded] = useState(false);
 
   if (!activeDoc) return null;
@@ -121,13 +121,27 @@ export default function DocViewer() {
         </div>
       )}
 
+      {activeDoc === "poc" && (
+        <div className="flex items-center gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
+          <span className="text-xs text-zinc-500">Not happy with this layout?</span>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => generatePoc()}
+            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
+          >
+            Regenerate POC
+          </button>
+        </div>
+      )}
+
       <div className={activeDoc === "poc" ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto"}>
         {activeDoc === "poc" ? (
           <iframe
             key={(entry.data as string).length}
             srcDoc={pinPocCdnVersions(entry.data as string)}
-            title="POC preview"
-            className="block h-full w-full border-0 bg-white"
+            title="Generated POC preview"
+            className="block h-full min-h-[80vh] w-full border-0 bg-white"
             sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
           />
         ) : (
