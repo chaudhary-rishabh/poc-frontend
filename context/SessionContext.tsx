@@ -21,6 +21,8 @@ import { docLabel, downstreamOf, docTypeFromBackendKey } from "@/lib/types";
 
 interface SessionContextValue {
   sessionId: string | null;
+  sessionName: string | null;
+  renameSession: (name: string) => Promise<void>;
   provider: Provider;
   setProvider: (provider: Provider) => void;
   messages: ChatMessage[];
@@ -61,6 +63,7 @@ function makeMessage(role: MessageRole, text: string, actions?: ChatMessage["act
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionName, setSessionName] = useState<string | null>(null);
   const [provider, setProvider] = useState<Provider>("deepseek");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [docs, setDocs] = useState<Record<DocType, DocEntry>>(initialDocs);
@@ -96,6 +99,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const resetSession = useCallback(() => {
     setSessionId(null);
+    setSessionName(null);
     setMessages([]);
     setDocs(initialDocs);
     setActiveDoc(null);
@@ -109,6 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const res = await api.ingest({ text, files });
         setSessionId(res.session_id);
+        if (res.name) setSessionName(res.name);
         appendMessage("assistant", "Got it — I've ingested your input.", [
           { kind: "generate_discovery" },
         ]);
@@ -119,6 +124,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
     },
     [appendMessage]
+  );
+
+  const renameSession = useCallback(
+    async (name: string) => {
+      if (!sessionId) return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const previous = sessionName;
+      setSessionName(trimmed);
+      try {
+        await api.renameSession(sessionId, trimmed);
+      } catch {
+        setSessionName(previous);
+        appendMessage("assistant", "Failed to rename the session. Please try again.");
+      }
+    },
+    [sessionId, sessionName, appendMessage]
   );
 
   const generateDiscovery = useCallback(async () => {
@@ -289,6 +311,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SessionContextValue>(
     () => ({
       sessionId,
+      sessionName,
+      renameSession,
       provider,
       setProvider,
       messages,
@@ -309,6 +333,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }),
     [
       sessionId,
+      sessionName,
+      renameSession,
       provider,
       messages,
       docs,

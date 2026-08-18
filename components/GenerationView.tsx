@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import * as api from "@/lib/apiClient";
 import { docLabel, downstreamOf } from "@/lib/types";
@@ -47,6 +47,13 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [staleDueTo, setStaleDueTo] = useState<Partial<Record<DocType, DocType>>>({});
   const [justRegenerated, setJustRegenerated] = useState<DocType | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingName) nameInputRef.current?.focus();
+  }, [editingName]);
 
   useEffect(() => {
     if (!pocFullscreen) return;
@@ -133,6 +140,26 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const startEditingName = () => {
+    if (!session) return;
+    setNameDraft(session.name ?? "");
+    setEditingName(true);
+  };
+
+  const commitName = async () => {
+    setEditingName(false);
+    const trimmed = nameDraft.trim();
+    if (!session || !trimmed || trimmed === session.name) return;
+    const previous = session.name;
+    setSession((prev) => (prev ? { ...prev, name: trimmed } : prev));
+    try {
+      await api.renameSession(session.id, trimmed);
+    } catch {
+      setSession((prev) => (prev ? { ...prev, name: previous } : prev));
+      setActionError("Failed to rename the session. Please try again.");
+    }
+  };
+
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#0a0a0a] text-center">
@@ -186,10 +213,34 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
         {!summaryCollapsed && (
           <div className="flex w-[32%] min-w-[300px] flex-col gap-5 overflow-y-auto border-r border-zinc-900 px-5 py-5">
             <div>
-              <h1 className="text-base font-medium text-zinc-100">
-                {session.name ?? "Untitled session"}
-              </h1>
-              <p className="mt-1 text-xs text-zinc-600">{session.id}</p>
+              {editingName ? (
+                <input
+                  ref={nameInputRef}
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value)}
+                  onBlur={commitName}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void commitName();
+                    } else if (e.key === "Escape") {
+                      setEditingName(false);
+                    }
+                  }}
+                  placeholder="Untitled session"
+                  className="w-full rounded-md border border-zinc-700 bg-[#141414] px-2 py-1 text-base text-zinc-100 outline-none"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={startEditingName}
+                  title="Click to rename"
+                  className="rounded-md px-1.5 py-0.5 text-left text-base font-medium text-zinc-100 hover:bg-[#1a1a1a]"
+                >
+                  {session.name ?? "Untitled session"}
+                </button>
+              )}
+              <p className="mt-1 px-1.5 text-xs text-zinc-600">{session.id}</p>
             </div>
 
             <div className="flex flex-col gap-1 text-xs text-zinc-500">

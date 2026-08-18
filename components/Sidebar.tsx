@@ -28,6 +28,13 @@ const newProjectIcon = (
   </svg>
 );
 
+const projectsIcon = (
+  <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.75" />
+    <path d="M3 9h18M8 4v5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+  </svg>
+);
+
 const historyIcon = (
   <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 shrink-0">
     <path
@@ -59,7 +66,7 @@ export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useParams<{ id?: string }>();
-  const { sessionId, resetSession } = useSession();
+  const { sessionId, sessionName, resetSession } = useSession();
   const [expanded, setExpanded] = useState(true);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
 
@@ -84,6 +91,25 @@ export default function Sidebar() {
     router.push("/");
   };
 
+  // The in-progress session on "/" may not exist in the last-fetched list yet
+  // (it was just created), and a live rename hasn't necessarily been refetched
+  // yet either — so for the active row, prefer the name from context.
+  const visibleSessions: SessionSummary[] =
+    pathname === "/" && sessionId && !sessions.some((s) => s.id === sessionId)
+      ? [
+          {
+            id: sessionId,
+            name: sessionName,
+            created_at: new Date().toISOString(),
+            doc_a_status: null,
+            has_doc_b: false,
+            has_doc_c: false,
+            has_poc: false,
+          },
+          ...sessions,
+        ]
+      : sessions;
+
   return (
     <div
       className={`flex h-full shrink-0 flex-col border-r border-zinc-900 bg-[#0a0a0a] transition-[width] duration-150 ${
@@ -103,7 +129,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <div className="px-2">
+      <div className="flex flex-col gap-0.5 px-2">
         <button
           type="button"
           onClick={handleNewProject}
@@ -115,6 +141,19 @@ export default function Sidebar() {
         >
           {newProjectIcon}
           {expanded && <span>New Project</span>}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => router.push("/projects")}
+          aria-label="Projects"
+          title="Projects"
+          className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-zinc-200 hover:bg-[#1a1a1a] ${
+            expanded ? "" : "justify-center"
+          }`}
+        >
+          {projectsIcon}
+          {expanded && <span>Projects</span>}
         </button>
       </div>
 
@@ -138,12 +177,13 @@ export default function Sidebar() {
             Past Generations
           </span>
           <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {sessions.length === 0 ? (
+            {visibleSessions.length === 0 ? (
               <p className="px-2.5 py-2 text-xs text-zinc-600">No sessions yet</p>
             ) : (
               <div className="flex flex-col gap-0.5">
-                {sessions.map((session) => {
+                {visibleSessions.map((session) => {
                   const isActive = session.id === activeSessionId;
+                  const displayName = isActive && sessionName ? sessionName : session.name;
                   return (
                     <button
                       key={session.id}
@@ -154,7 +194,7 @@ export default function Sidebar() {
                       }`}
                     >
                       <span className="w-full truncate text-sm text-zinc-200">
-                        {session.name ?? "Untitled session"}
+                        {displayName ?? "Untitled session"}
                       </span>
                       <span className="text-xs text-zinc-600">{formatRelativeTime(session.created_at)}</span>
                     </button>

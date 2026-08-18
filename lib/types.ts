@@ -115,6 +115,7 @@ export interface ChatMessage {
 export interface IngestResponse {
   session_id: string;
   combined_text: string;
+  name?: string | null;
 }
 
 export interface DiscoveryResponse {

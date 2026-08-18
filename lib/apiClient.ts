@@ -132,4 +132,9 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await apiClient.delete(`/session/${sessionId}`);
 }
 
+export async function renameSession(sessionId: string, name: string): Promise<SessionState> {
+  const { data } = await apiClient.patch<SessionState>(`/session/${sessionId}`, { name });
+  return data;
+}
+
 export default apiClient;
