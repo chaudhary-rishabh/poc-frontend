@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -14,7 +15,10 @@ import type {
   ChatMessage,
   DocEntry,
   DocType,
+  Effort,
   MessageRole,
+  ModelInfo,
+  ModelRegistry,
   Provider,
 } from "@/lib/types";
 import { docLabel, downstreamOf, docTypeFromBackendKey } from "@/lib/types";
@@ -25,6 +29,12 @@ interface SessionContextValue {
   renameSession: (name: string) => Promise<void>;
   provider: Provider;
   setProvider: (provider: Provider) => void;
+  modelRegistry: ModelRegistry | null;
+  model: string | null;
+  setModel: (model: string) => void;
+  effort: Effort;
+  setEffort: (effort: Effort) => void;
+  currentModelInfo: ModelInfo | null;
   messages: ChatMessage[];
   docs: Record<DocType, DocEntry>;
   activeDoc: DocType | null;
@@ -61,14 +71,53 @@ function makeMessage(role: MessageRole, text: string, actions?: ChatMessage["act
   };
 }
 
+function firstNonDeprecated(models: ModelInfo[] | undefined): string | null {
+  if (!models || models.length === 0) return null;
+  return (models.find((m) => !m.deprecated) ?? models[0]).id;
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [sessionName, setSessionName] = useState<string | null>(null);
-  const [provider, setProvider] = useState<Provider>("deepseek");
+  const [provider, setProviderState] = useState<Provider>("deepseek");
+  const [modelRegistry, setModelRegistry] = useState<ModelRegistry | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+  const [effort, setEffort] = useState<Effort>("medium");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [docs, setDocs] = useState<Record<DocType, DocEntry>>(initialDocs);
   const [activeDoc, setActiveDoc] = useState<DocType | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getModels()
+      .then((registry) => {
+        if (cancelled) return;
+        setModelRegistry(registry);
+        setModel((current) => current ?? firstNonDeprecated(registry[provider]));
+      })
+      .catch(() => {
+        // model registry is a progressive enhancement — fall back to provider-only requests
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const setProvider = useCallback(
+    (next: Provider) => {
+      setProviderState(next);
+      setModel(firstNonDeprecated(modelRegistry?.[next]));
+    },
+    [modelRegistry]
+  );
+
+  const currentModelInfo = useMemo(() => {
+    if (!modelRegistry || !model) return null;
+    return modelRegistry[provider]?.find((m) => m.id === model) ?? null;
+  }, [modelRegistry, provider, model]);
 
   const appendMessage = useCallback((role: MessageRole, text: string, actions?: ChatMessage["actions"]) => {
     setMessages((prev) => [...prev, makeMessage(role, text, actions)]);
@@ -143,11 +192,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [sessionId, sessionName, appendMessage]
   );
 
+  const selection = useMemo(
+    () => ({
+      model: model ?? undefined,
+      effort: currentModelInfo?.supports_effort ? effort : undefined,
+    }),
+    [model, effort, currentModelInfo]
+  );
+
   const generateDiscovery = useCallback(async () => {
     if (!sessionId) return;
     setIsBusy(true);
     try {
-      const res = await api.generateDiscovery(sessionId, provider);
+      const res = await api.generateDiscovery(sessionId, provider, selection);
       setDoc("docA", { status: res.doc_a_status, data: res.doc_a });
       setActiveDoc("docA");
       appendMessage("assistant", "Here's the Discovery Report (Doc A). Review it and approve or regenerate.");
@@ -156,14 +213,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsBusy(false);
     }
-  }, [sessionId, provider, appendMessage, setDoc]);
+  }, [sessionId, provider, selection, appendMessage, setDoc]);
 
   const approveDocA = useCallback(
     async (action: "approve" | "regenerate", feedback?: string) => {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const res = await api.approveDocA(sessionId, action, provider, feedback);
+        const res = await api.approveDocA(sessionId, action, provider, feedback, selection);
         setDoc("docA", {
           status: res.doc_a_status,
           data: res.doc_a,
@@ -184,7 +241,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
-    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+    [sessionId, provider, selection, appendMessage, setDoc, markDownstreamStale]
   );
 
   const generateDocB = useCallback(
@@ -192,7 +249,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const res = await api.generateDocB(sessionId, provider, feedback);
+        const res = await api.generateDocB(sessionId, provider, feedback, selection);
         setDoc("docB", {
           status: "locked",
           data: res.doc_b,
@@ -210,7 +267,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
-    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+    [sessionId, provider, selection, appendMessage, setDoc, markDownstreamStale]
   );
 
   const generateDocC = useCallback(
@@ -218,7 +275,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const res = await api.generateDocC(sessionId, provider, feedback);
+        const res = await api.generateDocC(sessionId, provider, feedback, selection);
         setDoc("docC", {
           status: "locked",
           data: res.doc_c,
@@ -236,7 +293,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
-    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+    [sessionId, provider, selection, appendMessage, setDoc, markDownstreamStale]
   );
 
   const generatePoc = useCallback(
@@ -244,7 +301,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const res = await api.generatePoc(sessionId, provider, feedback);
+        const res = await api.generatePoc(sessionId, provider, feedback, selection);
         setDoc("poc", {
           status: "locked",
           data: res.html,
@@ -259,7 +316,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
-    [sessionId, provider, appendMessage, setDoc]
+    [sessionId, provider, selection, appendMessage, setDoc]
   );
 
   const chatEdit = useCallback(
@@ -268,7 +325,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setIsBusy(true);
       appendMessage("user", message);
       try {
-        const res = await api.chatEdit(sessionId, message, activeDoc, provider);
+        const res = await api.chatEdit(sessionId, message, activeDoc, provider, selection);
         const docData =
           activeDoc === "docA"
             ? res.doc_a
@@ -305,7 +362,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
-    [sessionId, activeDoc, provider, appendMessage, setDoc, markDownstreamStale]
+    [sessionId, activeDoc, provider, selection, appendMessage, setDoc, markDownstreamStale]
   );
 
   const value = useMemo<SessionContextValue>(
@@ -315,6 +372,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       renameSession,
       provider,
       setProvider,
+      modelRegistry,
+      model,
+      setModel,
+      effort,
+      setEffort,
+      currentModelInfo,
       messages,
       docs,
       activeDoc,
@@ -336,6 +399,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       sessionName,
       renameSession,
       provider,
+      setProvider,
+      modelRegistry,
+      model,
+      effort,
+      currentModelInfo,
       messages,
       docs,
       activeDoc,

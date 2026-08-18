@@ -1,5 +1,16 @@
 export type Provider = "deepseek" | "anthropic";
 
+export type Effort = "low" | "medium" | "high";
+
+export interface ModelInfo {
+  id: string;
+  label: string;
+  deprecated: boolean;
+  supports_effort: boolean;
+}
+
+export type ModelRegistry = Record<Provider, ModelInfo[]>;
+
 export type DocStatus = "not_generated" | "draft" | "locked";
 
 export type DocType = "docA" | "docB" | "docC" | "poc";

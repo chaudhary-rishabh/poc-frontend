@@ -5,7 +5,9 @@ import type {
   DocBResponse,
   DocCResponse,
   DocType,
+  Effort,
   IngestResponse,
+  ModelRegistry,
   PocResponse,
   Provider,
   SessionState,
@@ -32,13 +34,21 @@ export async function ingest({ text, files }: IngestPayload): Promise<IngestResp
   return data;
 }
 
+export interface ModelSelection {
+  model?: string;
+  effort?: Effort;
+}
+
 export async function generateDiscovery(
   sessionId: string,
-  provider: Provider
+  provider: Provider,
+  selection?: ModelSelection
 ): Promise<DiscoveryResponse> {
   const { data } = await apiClient.post<DiscoveryResponse>("/discovery", {
     session_id: sessionId,
     provider,
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -47,13 +57,16 @@ export async function approveDocA(
   sessionId: string,
   action: "approve" | "regenerate",
   provider: Provider,
-  feedback?: string
+  feedback?: string,
+  selection?: ModelSelection
 ): Promise<DiscoveryResponse> {
   const { data } = await apiClient.post<DiscoveryResponse>("/approve/doc-a", {
     session_id: sessionId,
     action,
     provider,
     ...(feedback ? { feedback } : {}),
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -61,12 +74,15 @@ export async function approveDocA(
 export async function generateDocB(
   sessionId: string,
   provider: Provider,
-  feedback?: string
+  feedback?: string,
+  selection?: ModelSelection
 ): Promise<DocBResponse> {
   const { data } = await apiClient.post<DocBResponse>("/generate/doc-b", {
     session_id: sessionId,
     provider,
     ...(feedback ? { feedback } : {}),
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -74,12 +90,15 @@ export async function generateDocB(
 export async function generateDocC(
   sessionId: string,
   provider: Provider,
-  feedback?: string
+  feedback?: string,
+  selection?: ModelSelection
 ): Promise<DocCResponse> {
   const { data } = await apiClient.post<DocCResponse>("/generate/doc-c", {
     session_id: sessionId,
     provider,
     ...(feedback ? { feedback } : {}),
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -87,12 +106,15 @@ export async function generateDocC(
 export async function generatePoc(
   sessionId: string,
   provider: Provider,
-  feedback?: string
+  feedback?: string,
+  selection?: ModelSelection
 ): Promise<PocResponse> {
   const { data } = await apiClient.post<PocResponse>("/generate/poc", {
     session_id: sessionId,
     provider,
     ...(feedback ? { feedback } : {}),
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -108,12 +130,15 @@ export async function chatEdit(
   sessionId: string,
   message: string,
   targetDoc: DocType,
-  provider: Provider
+  provider: Provider,
+  selection?: ModelSelection
 ): Promise<ChatEditResponse> {
   const { data } = await apiClient.post<ChatEditResponse>(`/session/${sessionId}/chat`, {
     message,
     target_doc: targetDocParam[targetDoc],
     provider,
+    ...(selection?.model ? { model: selection.model } : {}),
+    ...(selection?.effort ? { effort: selection.effort } : {}),
   });
   return data;
 }
@@ -135,6 +160,16 @@ export async function deleteSession(sessionId: string): Promise<void> {
 export async function renameSession(sessionId: string, name: string): Promise<SessionState> {
   const { data } = await apiClient.patch<SessionState>(`/session/${sessionId}`, { name });
   return data;
+}
+
+interface ModelsApiResponse {
+  models: ModelRegistry;
+  effort_levels: Effort[];
+}
+
+export async function getModels(): Promise<ModelRegistry> {
+  const { data } = await apiClient.get<ModelsApiResponse>("/models");
+  return data.models;
 }
 
 export default apiClient;

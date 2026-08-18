@@ -3,35 +3,111 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/context/SessionContext";
 import { docLabel } from "@/lib/types";
-import type { Provider } from "@/lib/types";
+import type { Effort, ModelInfo, Provider } from "@/lib/types";
 
 const providerLabels: Record<Provider, string> = {
   anthropic: "Anthropic",
   deepseek: "DeepSeek",
 };
 
+const effortLabels: Record<Effort, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+function DropdownPill<T extends string>({
+  label,
+  options,
+  renderOption,
+  selected,
+  onSelect,
+  disabled,
+}: {
+  label: string;
+  options: T[];
+  renderOption: (option: T) => React.ReactNode;
+  selected: T | null;
+  onSelect: (option: T) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex h-9 items-center gap-1.5 rounded-full border border-zinc-700 bg-transparent px-3 text-xs text-zinc-300 outline-none transition-colors hover:bg-[#242424] disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {label}
+        <span className="text-[10px] text-zinc-500">⌄</span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute bottom-full right-0 z-10 mb-2 w-44 overflow-hidden rounded-xl border border-zinc-800 bg-[#1a1a1a] py-1 shadow-xl"
+        >
+          {options.map((option) => (
+            <button
+              key={option}
+              type="button"
+              role="option"
+              aria-selected={selected === option}
+              onClick={() => {
+                onSelect(option);
+                setOpen(false);
+              }}
+              className="flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-[#242424]"
+            >
+              {renderOption(option)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ChatInput() {
-  const { sessionId, activeDoc, docs, ingestAndStart, chatEdit, isBusy, provider, setProvider } =
-    useSession();
+  const {
+    sessionId,
+    activeDoc,
+    docs,
+    ingestAndStart,
+    chatEdit,
+    isBusy,
+    provider,
+    setProvider,
+    modelRegistry,
+    model,
+    setModel,
+    effort,
+    setEffort,
+    currentModelInfo,
+  } = useSession();
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
-  const [providerMenuOpen, setProviderMenuOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const providerMenuRef = useRef<HTMLDivElement>(null);
 
   const activeDocEntry = activeDoc ? docs[activeDoc] : null;
   const editMode = !!sessionId && !!activeDoc && !!activeDocEntry?.data;
 
-  useEffect(() => {
-    if (!providerMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (providerMenuRef.current && !providerMenuRef.current.contains(e.target as Node)) {
-        setProviderMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [providerMenuOpen]);
+  const modelsForProvider: ModelInfo[] = modelRegistry?.[provider] ?? [];
 
   const handleSubmit = async () => {
     if (isBusy || (!text.trim() && files.length === 0)) return;
@@ -125,44 +201,49 @@ export default function ChatInput() {
           className="max-h-40 flex-1 resize-none bg-transparent py-1.5 text-[15px] text-zinc-100 placeholder-zinc-500 outline-none disabled:cursor-not-allowed"
         />
 
-        <div ref={providerMenuRef} className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setProviderMenuOpen((v) => !v)}
-            disabled={isBusy}
-            aria-haspopup="listbox"
-            aria-expanded={providerMenuOpen}
-            className="flex h-9 items-center gap-1.5 rounded-full border border-zinc-700 bg-transparent px-3 text-xs text-zinc-300 outline-none transition-colors hover:bg-[#242424] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {providerLabels[provider]}
-            <span className="text-[10px] text-zinc-500">⌄</span>
-          </button>
+        <DropdownPill
+          label={providerLabels[provider]}
+          options={Object.keys(providerLabels) as Provider[]}
+          selected={provider}
+          onSelect={setProvider}
+          disabled={isBusy}
+          renderOption={(key) => <span className="text-zinc-200">{providerLabels[key]}</span>}
+        />
 
-          {providerMenuOpen && (
-            <div
-              role="listbox"
-              className="absolute bottom-full right-0 z-10 mb-2 w-36 overflow-hidden rounded-xl border border-zinc-800 bg-[#1a1a1a] py-1 shadow-xl"
-            >
-              {(Object.keys(providerLabels) as Provider[]).map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  role="option"
-                  aria-selected={provider === key}
-                  onClick={() => {
-                    setProvider(key);
-                    setProviderMenuOpen(false);
-                  }}
-                  className={`flex w-full items-center px-3 py-2 text-left text-sm transition-colors hover:bg-[#242424] ${
-                    provider === key ? "text-zinc-50" : "text-zinc-300"
-                  }`}
-                >
-                  {providerLabels[key]}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {modelsForProvider.length > 0 && (
+          <DropdownPill
+            label={currentModelInfo?.label ?? "Model"}
+            options={modelsForProvider.map((m) => m.id)}
+            selected={model}
+            onSelect={setModel}
+            disabled={isBusy}
+            renderOption={(id) => {
+              const info = modelsForProvider.find((m) => m.id === id);
+              if (!info) return id;
+              return (
+                <span className={`flex items-center gap-1.5 ${info.deprecated ? "text-zinc-500" : "text-zinc-200"}`}>
+                  {info.label}
+                  {info.deprecated && (
+                    <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-500">
+                      legacy
+                    </span>
+                  )}
+                </span>
+              );
+            }}
+          />
+        )}
+
+        {currentModelInfo?.supports_effort && (
+          <DropdownPill
+            label={effortLabels[effort]}
+            options={Object.keys(effortLabels) as Effort[]}
+            selected={effort}
+            onSelect={setEffort}
+            disabled={isBusy}
+            renderOption={(key) => <span className="text-zinc-200">{effortLabels[key]}</span>}
+          />
+        )}
 
         <button
           type="button"
