@@ -39,10 +39,14 @@ export default function DocList() {
             type="button"
             disabled={disabled}
             onClick={() => openDoc(type)}
+            title={entry.staleDueTo ? `May be out of date — ${shortLabel[entry.staleDueTo]} was updated` : undefined}
             className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed ${
               isActive ? "border-zinc-600 bg-[#1a1a1a]" : "border-zinc-800 hover:bg-[#151515]"
             }`}
           >
+            {entry.staleDueTo && (
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" aria-label="Possibly out of date" />
+            )}
             <span className={disabled ? "text-zinc-600" : "text-zinc-200"}>{shortLabel[type]}</span>
             <span className={`rounded-full border px-2 py-0.5 ${statusStyle[entry.status]}`}>
               {statusLabel[entry.status]}

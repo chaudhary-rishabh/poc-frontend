@@ -64,7 +64,34 @@ export interface DocEntry {
   label: string;
   status: DocStatus;
   data: DocA | DocB | DocC | string | null;
+  staleDueTo?: DocType;
+  justRegeneratedWithFeedback?: boolean;
 }
+
+export const downstreamOf: Record<DocType, DocType[]> = {
+  docA: ["docB", "docC", "poc"],
+  docB: ["docC", "poc"],
+  docC: ["poc"],
+  poc: [],
+};
+
+export const docLabel: Record<DocType, string> = {
+  docA: "Doc A",
+  docB: "Doc B",
+  docC: "Doc C",
+  poc: "POC",
+};
+
+// The backend's chat endpoint uses snake_case doc identifiers
+// (doc_a/doc_b/doc_c/poc) distinct from the frontend's DocType.
+export type BackendDocKey = "doc_a" | "doc_b" | "doc_c" | "poc";
+
+export const docTypeFromBackendKey: Record<BackendDocKey, DocType> = {
+  doc_a: "docA",
+  doc_b: "docB",
+  doc_c: "docC",
+  poc: "poc",
+};
 
 export type MessageRole = "user" | "assistant" | "system";
 
@@ -108,6 +135,17 @@ export interface DocCResponse {
 
 export interface PocResponse {
   html: string;
+}
+
+export interface ChatEditResponse {
+  session_id: string;
+  target_doc?: BackendDocKey;
+  doc_a?: DocA;
+  doc_a_status?: DocStatus;
+  doc_b?: DocB;
+  doc_c?: DocC;
+  html?: string;
+  stale_downstream?: BackendDocKey[];
 }
 
 export interface SessionState {

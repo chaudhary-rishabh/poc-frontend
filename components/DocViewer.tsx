@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@/context/SessionContext";
+import { docLabel } from "@/lib/types";
+import type { DocType } from "@/lib/types";
 import ArtifactContent, { pinPocCdnVersions } from "./ArtifactContent";
+import RegenerateWithFeedback from "./RegenerateWithFeedback";
 
 const badgeLabel = {
   docA: "Discovery Report · Doc A",
@@ -12,11 +15,28 @@ const badgeLabel = {
 } as const;
 
 export default function DocViewer() {
-  const { activeDoc, docs, closeDoc, approveDocA, generatePoc, isBusy } = useSession();
+  const {
+    activeDoc,
+    docs,
+    closeDoc,
+    approveDocA,
+    generateDocB,
+    generateDocC,
+    generatePoc,
+    clearFeedbackConfirmation,
+    isBusy,
+  } = useSession();
   const [expanded, setExpanded] = useState(false);
 
-  if (!activeDoc) return null;
-  const entry = docs[activeDoc];
+  const entry = activeDoc ? docs[activeDoc] : null;
+
+  useEffect(() => {
+    if (!activeDoc || !entry?.justRegeneratedWithFeedback) return;
+    const timer = setTimeout(() => clearFeedbackConfirmation(activeDoc), 4000);
+    return () => clearTimeout(timer);
+  }, [activeDoc, entry?.justRegeneratedWithFeedback, clearFeedbackConfirmation]);
+
+  if (!activeDoc || !entry) return null;
   if (!entry.data) return null;
 
   const handleDownload = () => {
@@ -31,6 +51,13 @@ export default function DocViewer() {
     a.download = `${activeDoc}.${isPoc ? "html" : "json"}`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const regenerateHandlers: Record<DocType, (feedback?: string) => void> = {
+    docA: (feedback) => approveDocA("regenerate", feedback),
+    docB: (feedback) => generateDocB(feedback),
+    docC: (feedback) => generateDocC(feedback),
+    poc: (feedback) => generatePoc(feedback),
   };
 
   return (
@@ -74,39 +101,87 @@ export default function DocViewer() {
         </div>
       </div>
 
-      {activeDoc === "docA" && entry.status === "draft" && (
-        <div className="flex items-center gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
-          <span className="text-xs text-zinc-500">Review the draft, then:</span>
+      {entry.staleDueTo && (
+        <div className="flex items-center justify-between gap-2 border-b border-amber-500/20 bg-amber-500/5 px-4 py-2">
+          <span className="text-xs text-amber-400">
+            This may be out of date — {docLabel[entry.staleDueTo]} was updated since this was generated.
+          </span>
           <button
             type="button"
             disabled={isBusy}
-            onClick={() => approveDocA("approve")}
-            className="rounded-full bg-emerald-600/90 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
+            onClick={() => regenerateHandlers[activeDoc]()}
+            className="shrink-0 rounded-full border border-amber-500/40 px-3 py-1 text-xs text-amber-300 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={isBusy}
-            onClick={() => approveDocA("regenerate")}
-            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
-          >
-            Regenerate
+            Regenerate this too
           </button>
         </div>
       )}
 
-      {activeDoc === "poc" && (
-        <div className="flex items-center gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
-          <span className="text-xs text-zinc-500">Not happy with this layout?</span>
-          <button
-            type="button"
+      {entry.justRegeneratedWithFeedback && (
+        <div className="border-b border-emerald-500/20 bg-emerald-500/5 px-4 py-2">
+          <span className="text-xs text-emerald-400">✓ Regenerated based on your feedback</span>
+        </div>
+      )}
+
+      {activeDoc === "docA" && entry.status === "draft" && (
+        <div className="flex flex-col gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500">Review the draft, then:</span>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => approveDocA("approve")}
+              className="rounded-full bg-emerald-600/90 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-40"
+            >
+              Approve
+            </button>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => approveDocA("regenerate")}
+              className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
+            >
+              Regenerate
+            </button>
+          </div>
+          <RegenerateWithFeedback
             disabled={isBusy}
-            onClick={() => generatePoc()}
-            className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
-          >
-            Regenerate POC
-          </button>
+            onSubmit={(feedback) => approveDocA("regenerate", feedback)}
+          />
+        </div>
+      )}
+
+      {(activeDoc === "docB" || activeDoc === "docC") && entry.status === "locked" && (
+        <div className="flex flex-col gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500">Not happy with this?</span>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => regenerateHandlers[activeDoc]()}
+              className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
+            >
+              Regenerate
+            </button>
+          </div>
+          <RegenerateWithFeedback disabled={isBusy} onSubmit={(feedback) => regenerateHandlers[activeDoc](feedback)} />
+        </div>
+      )}
+
+      {activeDoc === "poc" && (
+        <div className="flex flex-col gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-zinc-500">Not happy with this layout?</span>
+            <button
+              type="button"
+              disabled={isBusy}
+              onClick={() => generatePoc()}
+              className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
+            >
+              Regenerate POC
+            </button>
+          </div>
+          <RegenerateWithFeedback disabled={isBusy} onSubmit={(feedback) => generatePoc(feedback)} />
         </div>
       )}
 

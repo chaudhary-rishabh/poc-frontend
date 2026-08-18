@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSession } from "@/lib/apiClient";
+import * as api from "@/lib/apiClient";
+import { docLabel, downstreamOf } from "@/lib/types";
 import type { DocStatus, DocType, SessionState } from "@/lib/types";
 import ArtifactContent, { pinPocCdnVersions } from "./ArtifactContent";
 import ArtifactsPanel from "./ArtifactsPanel";
+import RegenerateWithFeedback from "./RegenerateWithFeedback";
 
 const statusLabel: Record<DocStatus, string> = {
   not_generated: "not generated yet",
@@ -41,6 +43,10 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
   const [activeArtifact, setActiveArtifact] = useState<DocType | null>(null);
   const [pocFullscreen, setPocFullscreen] = useState(false);
   const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [staleDueTo, setStaleDueTo] = useState<Partial<Record<DocType, DocType>>>({});
+  const [justRegenerated, setJustRegenerated] = useState<DocType | null>(null);
 
   useEffect(() => {
     if (!pocFullscreen) return;
@@ -56,8 +62,15 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
   }, [activeArtifact]);
 
   useEffect(() => {
+    if (!justRegenerated) return;
+    const timer = setTimeout(() => setJustRegenerated(null), 4000);
+    return () => clearTimeout(timer);
+  }, [justRegenerated]);
+
+  useEffect(() => {
     let cancelled = false;
-    getSession(sessionId)
+    api
+      .getSession(sessionId)
       .then((data) => {
         if (cancelled) return;
         setSession(data);
@@ -70,6 +83,55 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
       cancelled = true;
     };
   }, [sessionId]);
+
+  const existsFor = (type: DocType, s: SessionState): boolean => {
+    if (type === "docA") return !!s.doc_a;
+    if (type === "docB") return !!s.doc_b;
+    if (type === "docC") return !!s.doc_c;
+    return !!s.poc_html;
+  };
+
+  const markDownstreamStale = (type: DocType, s: SessionState) => {
+    setStaleDueTo((prev) => {
+      const next = { ...prev };
+      for (const downstreamType of downstreamOf[type]) {
+        if (existsFor(downstreamType, s)) next[downstreamType] = type;
+      }
+      return next;
+    });
+  };
+
+  const regenerate = async (type: DocType, feedback?: string) => {
+    if (!session) return;
+    setIsBusy(true);
+    setActionError(null);
+    try {
+      if (type === "docA") {
+        const res = await api.approveDocA(session.id, "regenerate", session.provider, feedback);
+        setSession((prev) => (prev ? { ...prev, doc_a: res.doc_a, doc_a_status: res.doc_a_status } : prev));
+      } else if (type === "docB") {
+        const res = await api.generateDocB(session.id, session.provider, feedback);
+        setSession((prev) => (prev ? { ...prev, doc_b: res.doc_b } : prev));
+      } else if (type === "docC") {
+        const res = await api.generateDocC(session.id, session.provider, feedback);
+        setSession((prev) => (prev ? { ...prev, doc_c: res.doc_c } : prev));
+      } else {
+        const res = await api.generatePoc(session.id, session.provider, feedback);
+        setSession((prev) => (prev ? { ...prev, poc_html: res.html } : prev));
+      }
+      setStaleDueTo((prev) => {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      });
+      if (session) markDownstreamStale(type, session);
+      if (feedback) setJustRegenerated(type);
+    } catch {
+      setActionError("Failed to regenerate. Please try again.");
+    } finally {
+      setIsBusy(false);
+    }
+  };
 
   if (error) {
     return (
@@ -100,6 +162,8 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
           : activeArtifact === "poc"
             ? session.poc_html
             : null;
+
+  const activeStaleDueTo = activeArtifact ? staleDueTo[activeArtifact] : undefined;
 
   return (
     <div className="flex h-full flex-col bg-[#0a0a0a]">
@@ -157,11 +221,13 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
         <div className="flex min-w-0 flex-1 flex-col">
           {activeArtifact && activeData ? (
             <>
-              {activeArtifact === "poc" && (
-                <div className="flex items-center justify-between border-b border-zinc-900 px-4 py-3">
-                  <span className="text-sm font-medium text-zinc-200">Proof of Concept</span>
+              <div className="flex flex-col gap-2 border-b border-zinc-900 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-zinc-200">
+                    {docLabel[activeArtifact]}
+                  </span>
                   <div className="flex items-center gap-1">
-                    {summaryCollapsed && (
+                    {activeArtifact === "poc" && summaryCollapsed && (
                       <button
                         type="button"
                         onClick={() => setSummaryCollapsed(false)}
@@ -173,18 +239,59 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
                         Session info
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setPocFullscreen(true)}
-                      aria-label="View POC fullscreen"
-                      title="Expand"
-                      className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-[#1e1e1e] hover:text-zinc-100"
-                    >
-                      ⤢
-                    </button>
+                    {activeArtifact === "poc" && (
+                      <button
+                        type="button"
+                        onClick={() => setPocFullscreen(true)}
+                        aria-label="View POC fullscreen"
+                        title="Expand"
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-[#1e1e1e] hover:text-zinc-100"
+                      >
+                        ⤢
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {activeStaleDueTo && (
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-1.5">
+                    <span className="text-xs text-amber-400">
+                      This may be out of date — {docLabel[activeStaleDueTo]} was updated since this was generated.
+                    </span>
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => regenerate(activeArtifact)}
+                      className="shrink-0 rounded-full border border-amber-500/40 px-3 py-1 text-xs text-amber-300 hover:bg-amber-500/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Regenerate this too
+                    </button>
+                  </div>
+                )}
+
+                {justRegenerated === activeArtifact && (
+                  <span className="text-xs text-emerald-400">✓ Regenerated based on your feedback</span>
+                )}
+
+                {actionError && <span className="text-xs text-red-400">{actionError}</span>}
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-500">Not happy with this?</span>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => regenerate(activeArtifact)}
+                    className="rounded-full border border-zinc-700 px-3 py-1 text-xs text-zinc-200 hover:bg-[#1e1e1e] disabled:opacity-40"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+                <RegenerateWithFeedback
+                  disabled={isBusy}
+                  onSubmit={(feedback) => regenerate(activeArtifact, feedback)}
+                />
+              </div>
+
               <div className={activeArtifact === "poc" ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto"}>
                 <ArtifactContent type={activeArtifact} data={activeData} />
               </div>

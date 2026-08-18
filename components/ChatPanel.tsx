@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
 import { useSession } from "@/context/SessionContext";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
@@ -16,17 +15,9 @@ export default function ChatPanel() {
 
   return (
     <div className="flex h-full min-w-0 flex-1 flex-col bg-[#0a0a0a]">
-      <div className="flex items-center justify-between gap-1 px-4 py-3">
-        <div className="flex items-center gap-1">
-          <span className="text-sm font-medium text-zinc-300">Discovery Session</span>
-          <span className="text-xs text-zinc-600">⌄</span>
-        </div>
-        <Link
-          href="/projects"
-          className="rounded-full border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-[#1a1a1a]"
-        >
-          View all projects
-        </Link>
+      <div className="flex items-center gap-1 px-4 py-3">
+        <span className="text-sm font-medium text-zinc-300">Discovery Session</span>
+        <span className="text-xs text-zinc-600">⌄</span>
       </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-2">

@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import axios from "axios";
 import * as api from "@/lib/apiClient";
 import type {
   ChatMessage,
@@ -16,6 +17,7 @@ import type {
   MessageRole,
   Provider,
 } from "@/lib/types";
+import { docLabel, downstreamOf, docTypeFromBackendKey } from "@/lib/types";
 
 interface SessionContextValue {
   sessionId: string | null;
@@ -26,13 +28,16 @@ interface SessionContextValue {
   activeDoc: DocType | null;
   openDoc: (type: DocType) => void;
   closeDoc: () => void;
+  clearFeedbackConfirmation: (type: DocType) => void;
+  resetSession: () => void;
   isBusy: boolean;
   ingestAndStart: (text: string, files: File[]) => Promise<void>;
   generateDiscovery: () => Promise<void>;
-  approveDocA: (action: "approve" | "regenerate") => Promise<void>;
-  generateDocB: () => Promise<void>;
-  generateDocC: () => Promise<void>;
-  generatePoc: () => Promise<void>;
+  approveDocA: (action: "approve" | "regenerate", feedback?: string) => Promise<void>;
+  generateDocB: (feedback?: string) => Promise<void>;
+  generateDocC: (feedback?: string) => Promise<void>;
+  generatePoc: (feedback?: string) => Promise<void>;
+  chatEdit: (message: string) => Promise<void>;
 }
 
 const initialDocs: Record<DocType, DocEntry> = {
@@ -70,8 +75,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setDocs((prev) => ({ ...prev, [type]: { ...prev[type], ...patch } }));
   }, []);
 
+  const markDownstreamStale = useCallback((type: DocType, explicitTargets?: DocType[]) => {
+    setDocs((prev) => {
+      const next = { ...prev };
+      const targets = explicitTargets ?? downstreamOf[type];
+      for (const downstreamType of targets) {
+        if (next[downstreamType].status !== "not_generated") {
+          next[downstreamType] = { ...next[downstreamType], staleDueTo: type };
+        }
+      }
+      return next;
+    });
+  }, []);
+
   const openDoc = useCallback((type: DocType) => setActiveDoc(type), []);
   const closeDoc = useCallback(() => setActiveDoc(null), []);
+  const clearFeedbackConfirmation = useCallback((type: DocType) => {
+    setDocs((prev) => ({ ...prev, [type]: { ...prev[type], justRegeneratedWithFeedback: false } }));
+  }, []);
+
+  const resetSession = useCallback(() => {
+    setSessionId(null);
+    setMessages([]);
+    setDocs(initialDocs);
+    setActiveDoc(null);
+  }, []);
 
   const ingestAndStart = useCallback(
     async (text: string, files: File[]) => {
@@ -109,17 +137,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [sessionId, provider, appendMessage, setDoc]);
 
   const approveDocA = useCallback(
-    async (action: "approve" | "regenerate") => {
+    async (action: "approve" | "regenerate", feedback?: string) => {
       if (!sessionId) return;
       setIsBusy(true);
       try {
-        const res = await api.approveDocA(sessionId, action, provider);
-        setDoc("docA", { status: res.doc_a_status, data: res.doc_a });
+        const res = await api.approveDocA(sessionId, action, provider, feedback);
+        setDoc("docA", {
+          status: res.doc_a_status,
+          data: res.doc_a,
+          staleDueTo: undefined,
+          justRegeneratedWithFeedback: action === "regenerate" && !!feedback,
+        });
         if (action === "approve") {
           appendMessage("assistant", "Doc A is locked in. Ready for the next step?", [
             { kind: "generate_doc_b" },
           ]);
         } else {
+          markDownstreamStale("docA");
           appendMessage("assistant", "Regenerated the Discovery Report. Take another look.");
         }
       } catch {
@@ -128,57 +162,129 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setIsBusy(false);
       }
     },
+    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+  );
+
+  const generateDocB = useCallback(
+    async (feedback?: string) => {
+      if (!sessionId) return;
+      setIsBusy(true);
+      try {
+        const res = await api.generateDocB(sessionId, provider, feedback);
+        setDoc("docB", {
+          status: "locked",
+          data: res.doc_b,
+          staleDueTo: undefined,
+          justRegeneratedWithFeedback: !!feedback,
+        });
+        markDownstreamStale("docB");
+        setActiveDoc("docB");
+        appendMessage("assistant", "Here's the UX & Flow Doc (Doc B). Ready to move on?", [
+          { kind: "generate_doc_c" },
+        ]);
+      } catch {
+        appendMessage("assistant", "Failed to generate the UX & Flow Doc. Please try again.");
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+  );
+
+  const generateDocC = useCallback(
+    async (feedback?: string) => {
+      if (!sessionId) return;
+      setIsBusy(true);
+      try {
+        const res = await api.generateDocC(sessionId, provider, feedback);
+        setDoc("docC", {
+          status: "locked",
+          data: res.doc_c,
+          staleDueTo: undefined,
+          justRegeneratedWithFeedback: !!feedback,
+        });
+        markDownstreamStale("docC");
+        setActiveDoc("docC");
+        appendMessage("assistant", "Here's the Architecture Doc (Doc C). Ready for the POC?", [
+          { kind: "generate_poc" },
+        ]);
+      } catch {
+        appendMessage("assistant", "Failed to generate the Architecture Doc. Please try again.");
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [sessionId, provider, appendMessage, setDoc, markDownstreamStale]
+  );
+
+  const generatePoc = useCallback(
+    async (feedback?: string) => {
+      if (!sessionId) return;
+      setIsBusy(true);
+      try {
+        const res = await api.generatePoc(sessionId, provider, feedback);
+        setDoc("poc", {
+          status: "locked",
+          data: res.html,
+          staleDueTo: undefined,
+          justRegeneratedWithFeedback: !!feedback,
+        });
+        setActiveDoc("poc");
+        appendMessage("assistant", "Here's your interactive POC.");
+      } catch {
+        appendMessage("assistant", "Failed to generate the POC. Please try again.");
+      } finally {
+        setIsBusy(false);
+      }
+    },
     [sessionId, provider, appendMessage, setDoc]
   );
 
-  const generateDocB = useCallback(async () => {
-    if (!sessionId) return;
-    setIsBusy(true);
-    try {
-      const res = await api.generateDocB(sessionId, provider);
-      setDoc("docB", { status: "locked", data: res.doc_b });
-      setActiveDoc("docB");
-      appendMessage("assistant", "Here's the UX & Flow Doc (Doc B). Ready to move on?", [
-        { kind: "generate_doc_c" },
-      ]);
-    } catch {
-      appendMessage("assistant", "Failed to generate the UX & Flow Doc. Please try again.");
-    } finally {
-      setIsBusy(false);
-    }
-  }, [sessionId, provider, appendMessage, setDoc]);
+  const chatEdit = useCallback(
+    async (message: string) => {
+      if (!sessionId || !activeDoc) return;
+      setIsBusy(true);
+      appendMessage("user", message);
+      try {
+        const res = await api.chatEdit(sessionId, message, activeDoc, provider);
+        const docData =
+          activeDoc === "docA"
+            ? res.doc_a
+            : activeDoc === "docB"
+              ? res.doc_b
+              : activeDoc === "docC"
+                ? res.doc_c
+                : res.html;
 
-  const generateDocC = useCallback(async () => {
-    if (!sessionId) return;
-    setIsBusy(true);
-    try {
-      const res = await api.generateDocC(sessionId, provider);
-      setDoc("docC", { status: "locked", data: res.doc_c });
-      setActiveDoc("docC");
-      appendMessage("assistant", "Here's the Architecture Doc (Doc C). Ready for the POC?", [
-        { kind: "generate_poc" },
-      ]);
-    } catch {
-      appendMessage("assistant", "Failed to generate the Architecture Doc. Please try again.");
-    } finally {
-      setIsBusy(false);
-    }
-  }, [sessionId, provider, appendMessage, setDoc]);
+        if (docData) {
+          setDoc(activeDoc, {
+            data: docData,
+            ...(activeDoc === "docA" && res.doc_a_status ? { status: res.doc_a_status } : {}),
+            staleDueTo: undefined,
+          });
+        }
 
-  const generatePoc = useCallback(async () => {
-    if (!sessionId) return;
-    setIsBusy(true);
-    try {
-      const res = await api.generatePoc(sessionId, provider);
-      setDoc("poc", { status: "locked", data: res.html });
-      setActiveDoc("poc");
-      appendMessage("assistant", "Here's your interactive POC.");
-    } catch {
-      appendMessage("assistant", "Failed to generate the POC. Please try again.");
-    } finally {
-      setIsBusy(false);
-    }
-  }, [sessionId, provider, appendMessage, setDoc]);
+        markDownstreamStale(
+          activeDoc,
+          res.stale_downstream?.map((key) => docTypeFromBackendKey[key])
+        );
+        appendMessage("assistant", `Updated ${docLabel[activeDoc]} based on your feedback.`);
+      } catch (err) {
+        if (axios.isAxiosError(err) && err.response?.status === 400) {
+          const detail =
+            typeof err.response.data === "object" && err.response.data && "detail" in err.response.data
+              ? String((err.response.data as { detail: unknown }).detail)
+              : `${docLabel[activeDoc]} doesn't exist yet — generate it first before requesting changes.`;
+          appendMessage("assistant", detail);
+        } else {
+          appendMessage("assistant", `Failed to update ${docLabel[activeDoc]}. Please try again.`);
+        }
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [sessionId, activeDoc, provider, appendMessage, setDoc, markDownstreamStale]
+  );
 
   const value = useMemo<SessionContextValue>(
     () => ({
@@ -190,6 +296,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeDoc,
       openDoc,
       closeDoc,
+      clearFeedbackConfirmation,
+      resetSession,
       isBusy,
       ingestAndStart,
       generateDiscovery,
@@ -197,6 +305,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       generateDocB,
       generateDocC,
       generatePoc,
+      chatEdit,
     }),
     [
       sessionId,
@@ -206,6 +315,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       activeDoc,
       openDoc,
       closeDoc,
+      clearFeedbackConfirmation,
+      resetSession,
       isBusy,
       ingestAndStart,
       generateDiscovery,
@@ -213,6 +324,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       generateDocB,
       generateDocC,
       generatePoc,
+      chatEdit,
     ]
   );
 

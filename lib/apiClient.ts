@@ -1,8 +1,10 @@
 import axios from "axios";
 import type {
+  ChatEditResponse,
   DiscoveryResponse,
   DocBResponse,
   DocCResponse,
+  DocType,
   IngestResponse,
   PocResponse,
   Provider,
@@ -44,44 +46,73 @@ export async function generateDiscovery(
 export async function approveDocA(
   sessionId: string,
   action: "approve" | "regenerate",
-  provider: Provider
+  provider: Provider,
+  feedback?: string
 ): Promise<DiscoveryResponse> {
   const { data } = await apiClient.post<DiscoveryResponse>("/approve/doc-a", {
     session_id: sessionId,
     action,
     provider,
+    ...(feedback ? { feedback } : {}),
   });
   return data;
 }
 
 export async function generateDocB(
   sessionId: string,
-  provider: Provider
+  provider: Provider,
+  feedback?: string
 ): Promise<DocBResponse> {
   const { data } = await apiClient.post<DocBResponse>("/generate/doc-b", {
     session_id: sessionId,
     provider,
+    ...(feedback ? { feedback } : {}),
   });
   return data;
 }
 
 export async function generateDocC(
   sessionId: string,
-  provider: Provider
+  provider: Provider,
+  feedback?: string
 ): Promise<DocCResponse> {
   const { data } = await apiClient.post<DocCResponse>("/generate/doc-c", {
     session_id: sessionId,
     provider,
+    ...(feedback ? { feedback } : {}),
   });
   return data;
 }
 
 export async function generatePoc(
   sessionId: string,
-  provider: Provider
+  provider: Provider,
+  feedback?: string
 ): Promise<PocResponse> {
   const { data } = await apiClient.post<PocResponse>("/generate/poc", {
     session_id: sessionId,
+    provider,
+    ...(feedback ? { feedback } : {}),
+  });
+  return data;
+}
+
+const targetDocParam: Record<DocType, "doc_a" | "doc_b" | "doc_c" | "poc"> = {
+  docA: "doc_a",
+  docB: "doc_b",
+  docC: "doc_c",
+  poc: "poc",
+};
+
+export async function chatEdit(
+  sessionId: string,
+  message: string,
+  targetDoc: DocType,
+  provider: Provider
+): Promise<ChatEditResponse> {
+  const { data } = await apiClient.post<ChatEditResponse>(`/session/${sessionId}/chat`, {
+    message,
+    target_doc: targetDocParam[targetDoc],
     provider,
   });
   return data;
