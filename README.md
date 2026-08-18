@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Business Discovery to POC — Frontend
 
-## Getting Started
+Next.js interface for the discovery-to-POC pipeline — a chat-driven flow on the left, a document/artifact viewer on the right, styled after Claude's own chat + artifact layout.
 
-First, run the development server:
+## Features
+
+- **Ingestion** — paste text, or upload files/screenshots via the chat input's attach menu.
+- **Document viewer** — Doc A, Doc B, Doc C rendered as formatted document cards; the POC rendered as a sandboxed `iframe` preview, with a fullscreen toggle.
+- **Doc list / status strip** — shows draft/locked status for each stage (Doc A → Doc B → Doc C → POC).
+- **Sidebar** — collapsible (icon-only when collapsed, matching Claude's own sidebar pattern), with a "New Project" action and a list of past sessions.
+- **Projects page** (`/projects`) — full list of all sessions with status and delete.
+- **Generation detail page** (`/generation/[id]`) — revisit any past session directly by URL, with its own Artifacts panel.
+- **Model switcher** — toggle between Anthropic and DeepSeek per request.
+- **Human-in-the-loop editing** — once a document is open, the main chat input routes feedback ("remove X", "add a login screen") to the backend's regeneration endpoint for that specific document, rather than treating every message as new raw input.
+
+## Tech stack
+
+| Layer | Choice |
+|---|---|
+| Framework | Next.js (App Router), TypeScript |
+| Styling | Tailwind CSS |
+| HTTP | Axios (single configured client) |
+| State | React state/context — no external state library |
+
+## Running locally
 
 ```bash
+npm install
+cp .env.example .env.local   # set NEXT_PUBLIC_API_URL to the backend's URL
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_API_URL   # backend base URL (local FastAPI or the deployed Cloud Run URL)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment
 
-## Learn More
+Deployed on Vercel, connected directly to this repository — every push to `main` auto-deploys, with preview deployments on other branches/PRs. `NEXT_PUBLIC_API_URL` is set in Vercel's project environment variables to point at the deployed backend.
 
-To learn more about Next.js, take a look at the following resources:
+## Assumptions
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Single-user context — no login/authentication UI.
+- The generated POC is a self-contained HTML/React (CDN + Babel Standalone) document rendered via `iframe srcDoc` — an in-browser preview, not a full WebContainer runtime, and not wired to a live backend.
+- No persistence beyond what the backend session stores; there is no client-side caching layer.
