@@ -65,6 +65,32 @@ function SessionLabel() {
   );
 }
 
+const LONG_WAIT_THRESHOLD_MS = 18_000;
+
+function BusyIndicator({ isBusy }: { isBusy: boolean }) {
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (!isBusy) {
+      setElapsedMs(0);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => setElapsedMs(Date.now() - start), 1000);
+    return () => clearInterval(interval);
+  }, [isBusy]);
+
+  if (!isBusy) return null;
+
+  return (
+    <p className="text-sm text-zinc-500">
+      {elapsedMs > LONG_WAIT_THRESHOLD_MS
+        ? "Generating… this can take a few minutes at higher effort levels."
+        : "Thinking…"}
+    </p>
+  );
+}
+
 export default function ChatPanel() {
   const { messages, isBusy } = useSession();
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -92,7 +118,7 @@ export default function ChatPanel() {
             {messages.map((message) => (
               <MessageBubble key={message.id} message={message} />
             ))}
-            {isBusy && <p className="text-sm text-zinc-500">Thinking…</p>}
+            <BusyIndicator isBusy={isBusy} />
             <div ref={bottomRef} />
           </div>
         )}

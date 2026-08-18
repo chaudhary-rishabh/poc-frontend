@@ -14,8 +14,12 @@ import type {
   SessionSummary,
 } from "./types";
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+const GENERATION_TIMEOUT_MS = 900_000; // 15 minutes — matches the backend's ceiling for LLM generation calls
+
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  timeout: DEFAULT_TIMEOUT_MS,
 });
 
 export interface IngestPayload {
@@ -44,12 +48,16 @@ export async function generateDiscovery(
   provider: Provider,
   selection?: ModelSelection
 ): Promise<DiscoveryResponse> {
-  const { data } = await apiClient.post<DiscoveryResponse>("/discovery", {
-    session_id: sessionId,
-    provider,
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<DiscoveryResponse>(
+    "/discovery",
+    {
+      session_id: sessionId,
+      provider,
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
@@ -60,14 +68,18 @@ export async function approveDocA(
   feedback?: string,
   selection?: ModelSelection
 ): Promise<DiscoveryResponse> {
-  const { data } = await apiClient.post<DiscoveryResponse>("/approve/doc-a", {
-    session_id: sessionId,
-    action,
-    provider,
-    ...(feedback ? { feedback } : {}),
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<DiscoveryResponse>(
+    "/approve/doc-a",
+    {
+      session_id: sessionId,
+      action,
+      provider,
+      ...(feedback ? { feedback } : {}),
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
@@ -77,13 +89,17 @@ export async function generateDocB(
   feedback?: string,
   selection?: ModelSelection
 ): Promise<DocBResponse> {
-  const { data } = await apiClient.post<DocBResponse>("/generate/doc-b", {
-    session_id: sessionId,
-    provider,
-    ...(feedback ? { feedback } : {}),
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<DocBResponse>(
+    "/generate/doc-b",
+    {
+      session_id: sessionId,
+      provider,
+      ...(feedback ? { feedback } : {}),
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
@@ -93,13 +109,17 @@ export async function generateDocC(
   feedback?: string,
   selection?: ModelSelection
 ): Promise<DocCResponse> {
-  const { data } = await apiClient.post<DocCResponse>("/generate/doc-c", {
-    session_id: sessionId,
-    provider,
-    ...(feedback ? { feedback } : {}),
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<DocCResponse>(
+    "/generate/doc-c",
+    {
+      session_id: sessionId,
+      provider,
+      ...(feedback ? { feedback } : {}),
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
@@ -109,13 +129,17 @@ export async function generatePoc(
   feedback?: string,
   selection?: ModelSelection
 ): Promise<PocResponse> {
-  const { data } = await apiClient.post<PocResponse>("/generate/poc", {
-    session_id: sessionId,
-    provider,
-    ...(feedback ? { feedback } : {}),
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<PocResponse>(
+    "/generate/poc",
+    {
+      session_id: sessionId,
+      provider,
+      ...(feedback ? { feedback } : {}),
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
@@ -133,13 +157,17 @@ export async function chatEdit(
   provider: Provider,
   selection?: ModelSelection
 ): Promise<ChatEditResponse> {
-  const { data } = await apiClient.post<ChatEditResponse>(`/session/${sessionId}/chat`, {
-    message,
-    target_doc: targetDocParam[targetDoc],
-    provider,
-    ...(selection?.model ? { model: selection.model } : {}),
-    ...(selection?.effort ? { effort: selection.effort } : {}),
-  });
+  const { data } = await apiClient.post<ChatEditResponse>(
+    `/session/${sessionId}/chat`,
+    {
+      message,
+      target_doc: targetDocParam[targetDoc],
+      provider,
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
   return data;
 }
 
