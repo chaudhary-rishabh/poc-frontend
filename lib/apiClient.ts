@@ -97,4 +97,8 @@ export async function listSessions(): Promise<SessionSummary[]> {
   return data;
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  await apiClient.delete(`/session/${sessionId}`);
+}
+
 export default apiClient;

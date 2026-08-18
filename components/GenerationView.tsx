@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSession } from "@/lib/apiClient";
 import type { DocStatus, DocType, SessionState } from "@/lib/types";
-import ArtifactContent from "./ArtifactContent";
+import ArtifactContent, { pinPocCdnVersions } from "./ArtifactContent";
 import ArtifactsPanel from "./ArtifactsPanel";
 
 const statusLabel: Record<DocStatus, string> = {
@@ -39,6 +39,21 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
   const [session, setSession] = useState<SessionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeArtifact, setActiveArtifact] = useState<DocType | null>(null);
+  const [pocFullscreen, setPocFullscreen] = useState(false);
+  const [summaryCollapsed, setSummaryCollapsed] = useState(false);
+
+  useEffect(() => {
+    if (!pocFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPocFullscreen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [pocFullscreen]);
+
+  useEffect(() => {
+    if (activeArtifact === "poc") setSummaryCollapsed(true);
+  }, [activeArtifact]);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,51 +103,92 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
 
   return (
     <div className="flex h-full flex-col bg-[#0a0a0a]">
-      <div className="flex items-center gap-2 border-b border-zinc-900 px-4 py-3">
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-900 px-4 py-3">
         <Link href="/projects" className="text-xs text-zinc-500 hover:text-zinc-300">
           ← Projects
         </Link>
+        {!summaryCollapsed && (
+          <button
+            type="button"
+            onClick={() => setSummaryCollapsed(true)}
+            className="rounded-full border border-zinc-800 px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-[#1a1a1a]"
+          >
+            Hide session info
+          </button>
+        )}
       </div>
 
       <div className="flex min-h-0 flex-1">
-        <div className="flex w-[32%] min-w-[300px] flex-col gap-5 overflow-y-auto border-r border-zinc-900 px-5 py-5">
-          <div>
-            <h1 className="text-base font-medium text-zinc-100">
-              {session.name ?? "Untitled session"}
-            </h1>
-            <p className="mt-1 text-xs text-zinc-600">{session.id}</p>
-          </div>
-
-          <div className="flex flex-col gap-1 text-xs text-zinc-500">
-            <span>Created {formatDate(session.created_at)}</span>
-            <span>Updated {formatDate(session.updated_at)}</span>
-            <span>Provider: {session.provider}</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <StatusPill label="Doc A" status={session.doc_a_status ?? "not_generated"} />
-            <StatusPill label="Doc B" status={session.doc_b ? "locked" : "not_generated"} />
-            <StatusPill label="Doc C" status={session.doc_c ? "locked" : "not_generated"} />
-            <StatusPill label="POC" status={session.poc_html ? "locked" : "not_generated"} />
-          </div>
-
-          {session.combined_text && (
-            <div className="flex flex-col gap-1.5">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Original Input
-              </h3>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">
-                {session.combined_text}
-              </p>
+        {!summaryCollapsed && (
+          <div className="flex w-[32%] min-w-[300px] flex-col gap-5 overflow-y-auto border-r border-zinc-900 px-5 py-5">
+            <div>
+              <h1 className="text-base font-medium text-zinc-100">
+                {session.name ?? "Untitled session"}
+              </h1>
+              <p className="mt-1 text-xs text-zinc-600">{session.id}</p>
             </div>
-          )}
-        </div>
 
-        <div className="flex min-w-0 flex-1">
+            <div className="flex flex-col gap-1 text-xs text-zinc-500">
+              <span>Created {formatDate(session.created_at)}</span>
+              <span>Updated {formatDate(session.updated_at)}</span>
+              <span>Provider: {session.provider}</span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <StatusPill label="Doc A" status={session.doc_a_status ?? "not_generated"} />
+              <StatusPill label="Doc B" status={session.doc_b ? "locked" : "not_generated"} />
+              <StatusPill label="Doc C" status={session.doc_c ? "locked" : "not_generated"} />
+              <StatusPill label="POC" status={session.poc_html ? "locked" : "not_generated"} />
+            </div>
+
+            {session.combined_text && (
+              <div className="flex flex-col gap-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Original Input
+                </h3>
+                <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-400">
+                  {session.combined_text}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex min-w-0 flex-1 flex-col">
           {activeArtifact && activeData ? (
-            <div className="flex-1 overflow-y-auto">
-              <ArtifactContent type={activeArtifact} data={activeData} />
-            </div>
+            <>
+              {activeArtifact === "poc" && (
+                <div className="flex items-center justify-between border-b border-zinc-900 px-4 py-3">
+                  <span className="text-sm font-medium text-zinc-200">Proof of Concept</span>
+                  <div className="flex items-center gap-1">
+                    {summaryCollapsed && (
+                      <button
+                        type="button"
+                        onClick={() => setSummaryCollapsed(false)}
+                        aria-label="Show session info and original input"
+                        title="Show session info"
+                        className="flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-zinc-400 hover:bg-[#1e1e1e] hover:text-zinc-100"
+                      >
+                        <span className="text-[13px] leading-none">☰</span>
+                        Session info
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPocFullscreen(true)}
+                      aria-label="View POC fullscreen"
+                      title="Expand"
+                      className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-[#1e1e1e] hover:text-zinc-100"
+                    >
+                      ⤢
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className={activeArtifact === "poc" ? "flex-1 overflow-hidden" : "flex-1 overflow-y-auto"}>
+                <ArtifactContent type={activeArtifact} data={activeData} />
+              </div>
+            </>
           ) : (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-zinc-600">Select an artifact to preview it here.</p>
@@ -144,6 +200,29 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
           <ArtifactsPanel session={session} activeArtifact={activeArtifact} onSelect={setActiveArtifact} />
         </div>
       </div>
+
+      {pocFullscreen && activeArtifact === "poc" && typeof activeData === "string" && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/90">
+          <div className="flex items-center justify-between bg-[#0e0e0e] px-4 py-3">
+            <span className="text-sm font-medium text-zinc-200">Proof of Concept — Fullscreen</span>
+            <button
+              type="button"
+              onClick={() => setPocFullscreen(false)}
+              aria-label="Exit fullscreen"
+              title="Close (Esc)"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-zinc-400 hover:bg-[#1e1e1e] hover:text-zinc-100"
+            >
+              ✕
+            </button>
+          </div>
+          <iframe
+            srcDoc={pinPocCdnVersions(activeData)}
+            title="Generated POC preview (fullscreen)"
+            className="block h-full w-full border-0 bg-white"
+            sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
+          />
+        </div>
+      )}
     </div>
   );
 }
