@@ -105,6 +105,7 @@ export default function Sidebar() {
             has_doc_b: false,
             has_doc_c: false,
             has_poc: false,
+            has_build_prompts: false,
           },
           ...sessions,
         ]

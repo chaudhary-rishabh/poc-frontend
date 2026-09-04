@@ -1,7 +1,8 @@
-import type { DocA, DocB, DocC, DocType } from "@/lib/types";
+import type { BuildPrompts, DocA, DocB, DocC, DocType } from "@/lib/types";
 import DocARenderer from "./docs/DocARenderer";
 import DocBRenderer from "./docs/DocBRenderer";
 import DocCRenderer from "./docs/DocCRenderer";
+import BuildPromptsRenderer from "./docs/BuildPromptsRenderer";
 
 export function pinPocCdnVersions(html: string): string {
   return html
@@ -21,7 +22,7 @@ export function pinPocCdnVersions(html: string): string {
 
 interface ArtifactContentProps {
   type: DocType;
-  data: DocA | DocB | DocC | string;
+  data: DocA | DocB | DocC | BuildPrompts | string;
 }
 
 export default function ArtifactContent({ type, data }: ArtifactContentProps) {
@@ -44,6 +45,7 @@ export default function ArtifactContent({ type, data }: ArtifactContentProps) {
         {type === "docA" && <DocARenderer doc={data as DocA} />}
         {type === "docB" && <DocBRenderer doc={data as DocB} />}
         {type === "docC" && <DocCRenderer doc={data as DocC} />}
+        {type === "buildPrompts" && <BuildPromptsRenderer doc={data as BuildPrompts} />}
       </div>
     </div>
   );

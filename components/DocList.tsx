@@ -3,13 +3,14 @@
 import { useSession } from "@/context/SessionContext";
 import type { DocStatus, DocType } from "@/lib/types";
 
-const order: DocType[] = ["docA", "docB", "docC", "poc"];
+const order: DocType[] = ["docA", "docB", "docC", "poc", "buildPrompts"];
 
 const shortLabel: Record<DocType, string> = {
   docA: "Doc A",
   docB: "Doc B",
   docC: "Doc C",
   poc: "POC",
+  buildPrompts: "Build Prompts",
 };
 
 const statusLabel: Record<DocStatus, string> = {
@@ -31,7 +32,8 @@ export default function DocList() {
     <div className="flex items-center gap-2 border-b border-zinc-900 px-4 py-2.5">
       {order.map((type) => {
         const entry = docs[type];
-        const disabled = entry.status === "not_generated";
+        const gatedOnDocC = type === "buildPrompts" && docs.docC.status === "not_generated";
+        const disabled = entry.status === "not_generated" || gatedOnDocC;
         const isActive = activeDoc === type;
         return (
           <button

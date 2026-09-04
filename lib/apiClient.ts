@@ -1,5 +1,6 @@
 import axios from "axios";
 import type {
+  BuildPromptsResponse,
   ChatEditResponse,
   DiscoveryResponse,
   DocBResponse,
@@ -17,8 +18,10 @@ import type {
 const DEFAULT_TIMEOUT_MS = 30_000;
 const GENERATION_TIMEOUT_MS = 900_000; // 15 minutes — matches the backend's ceiling for LLM generation calls
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  baseURL: API_BASE_URL,
   timeout: DEFAULT_TIMEOUT_MS,
 });
 
@@ -143,11 +146,38 @@ export async function generatePoc(
   return data;
 }
 
-const targetDocParam: Record<DocType, "doc_a" | "doc_b" | "doc_c" | "poc"> = {
+export async function generateBuildPrompts(
+  sessionId: string,
+  provider: Provider,
+  feedback?: string,
+  selection?: ModelSelection
+): Promise<BuildPromptsResponse> {
+  const { data } = await apiClient.post<BuildPromptsResponse>(
+    "/generate/build-prompts",
+    {
+      session_id: sessionId,
+      provider,
+      ...(feedback ? { feedback } : {}),
+      ...(selection?.model ? { model: selection.model } : {}),
+      ...(selection?.effort ? { effort: selection.effort } : {}),
+    },
+    { timeout: GENERATION_TIMEOUT_MS }
+  );
+  return data;
+}
+
+export type BuildPromptDocType = "frontend" | "backend" | "deployment" | "sequence";
+
+export function buildPromptsPdfUrl(sessionId: string, docType: BuildPromptDocType): string {
+  return `${API_BASE_URL}/session/${sessionId}/build-prompts/${docType}.pdf`;
+}
+
+const targetDocParam: Record<DocType, "doc_a" | "doc_b" | "doc_c" | "poc" | "build_prompts"> = {
   docA: "doc_a",
   docB: "doc_b",
   docC: "doc_c",
   poc: "poc",
+  buildPrompts: "build_prompts",
 };
 
 export async function chatEdit(

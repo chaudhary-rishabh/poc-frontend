@@ -1,5 +1,7 @@
 "use client";
 
+import { buildPromptsPdfUrl } from "@/lib/apiClient";
+import type { BuildPromptDocType } from "@/lib/apiClient";
 import { downloadArtifact } from "@/lib/downloadArtifact";
 import type { DocType, SessionState } from "@/lib/types";
 
@@ -9,6 +11,19 @@ interface ArtifactRow {
   typeLabel: string;
   data: unknown;
 }
+
+interface PdfRow {
+  title: string;
+  typeLabel: string;
+  docType: BuildPromptDocType;
+}
+
+const buildPromptsPdfRows: PdfRow[] = [
+  { title: "Frontend Build Prompt", typeLabel: "Document · PDF", docType: "frontend" },
+  { title: "Backend Build Prompt", typeLabel: "Document · PDF", docType: "backend" },
+  { title: "Deployment Prompt", typeLabel: "Document · PDF", docType: "deployment" },
+  { title: "Build Sequence Guide", typeLabel: "Document · PDF", docType: "sequence" },
+];
 
 const docIcon = (
   <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5 shrink-0 text-zinc-400">
@@ -54,6 +69,14 @@ export default function ArtifactsPanel({ session, activeArtifact, onSelect }: Ar
   }
   if (session.poc_html) {
     rows.push({ type: "poc", title: "Proof of Concept", typeLabel: "HTML · Interactive", data: session.poc_html });
+  }
+  if (session.build_prompts) {
+    rows.push({
+      type: "buildPrompts",
+      title: "Build Prompts",
+      typeLabel: "Document · JSON",
+      data: session.build_prompts,
+    });
   }
 
   const filenamePrefix = session.name ?? session.id.slice(0, 8);
@@ -112,6 +135,29 @@ export default function ArtifactsPanel({ session, activeArtifact, onSelect }: Ar
               </button>
             </div>
           ))}
+          {session.build_prompts &&
+            buildPromptsPdfRows.map((row) => (
+              <div
+                key={row.docType}
+                className="flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 transition-colors hover:bg-[#151515]"
+              >
+                <span className="flex flex-1 items-center gap-3 text-left">
+                  {docIcon}
+                  <span className="flex flex-col">
+                    <span className="text-sm text-zinc-100">{row.title}</span>
+                    <span className="text-xs text-zinc-500">{row.typeLabel}</span>
+                  </span>
+                </span>
+                <a
+                  href={buildPromptsPdfUrl(session.id, row.docType)}
+                  download
+                  aria-label={`Download ${row.title}`}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-[#242424] hover:text-zinc-100"
+                >
+                  {downloadIcon}
+                </a>
+              </div>
+            ))}
         </div>
       </div>
     </div>

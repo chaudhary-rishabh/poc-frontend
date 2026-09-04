@@ -12,6 +12,7 @@ const badgeLabel = {
   docB: "UX & Flow Doc · Doc B",
   docC: "Architecture Doc · Doc C",
   poc: "Proof of Concept",
+  buildPrompts: "Build Prompts",
 } as const;
 
 export default function DocViewer() {
@@ -23,6 +24,7 @@ export default function DocViewer() {
     generateDocB,
     generateDocC,
     generatePoc,
+    generateBuildPrompts,
     clearFeedbackConfirmation,
     isBusy,
   } = useSession();
@@ -58,6 +60,7 @@ export default function DocViewer() {
     docB: (feedback) => generateDocB(feedback),
     docC: (feedback) => generateDocC(feedback),
     poc: (feedback) => generatePoc(feedback),
+    buildPrompts: (feedback) => generateBuildPrompts(feedback),
   };
 
   return (
@@ -151,7 +154,7 @@ export default function DocViewer() {
         </div>
       )}
 
-      {(activeDoc === "docB" || activeDoc === "docC") && entry.status === "locked" && (
+      {(activeDoc === "docB" || activeDoc === "docC" || activeDoc === "buildPrompts") && entry.status === "locked" && (
         <div className="flex flex-col gap-2 border-b border-zinc-900 bg-[#141414] px-4 py-2.5">
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-500">Not happy with this?</span>

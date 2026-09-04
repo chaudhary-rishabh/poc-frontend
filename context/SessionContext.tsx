@@ -49,6 +49,7 @@ interface SessionContextValue {
   generateDocB: (feedback?: string) => Promise<void>;
   generateDocC: (feedback?: string) => Promise<void>;
   generatePoc: (feedback?: string) => Promise<void>;
+  generateBuildPrompts: (feedback?: string) => Promise<void>;
   chatEdit: (message: string) => Promise<void>;
 }
 
@@ -57,6 +58,7 @@ const initialDocs: Record<DocType, DocEntry> = {
   docB: { type: "docB", label: "UX & Flow Doc · Doc B", status: "not_generated", data: null },
   docC: { type: "docC", label: "Architecture Doc · Doc C", status: "not_generated", data: null },
   poc: { type: "poc", label: "POC", status: "not_generated", data: null },
+  buildPrompts: { type: "buildPrompts", label: "Build Prompts", status: "not_generated", data: null },
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
@@ -284,8 +286,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         });
         markDownstreamStale("docC");
         setActiveDoc("docC");
-        appendMessage("assistant", "Here's the Architecture Doc (Doc C). Ready for the POC?", [
+        appendMessage("assistant", "Here's the Architecture Doc (Doc C). Ready for the next step?", [
           { kind: "generate_poc" },
+          { kind: "generate_build_prompts" },
         ]);
       } catch {
         appendMessage("assistant", "Failed to generate the Architecture Doc. Please try again.");
@@ -309,9 +312,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           justRegeneratedWithFeedback: !!feedback,
         });
         setActiveDoc("poc");
-        appendMessage("assistant", "Here's your interactive POC.");
+        appendMessage("assistant", "Here's your interactive POC.", [{ kind: "generate_build_prompts" }]);
       } catch {
         appendMessage("assistant", "Failed to generate the POC. Please try again.");
+      } finally {
+        setIsBusy(false);
+      }
+    },
+    [sessionId, provider, selection, appendMessage, setDoc]
+  );
+
+  const generateBuildPrompts = useCallback(
+    async (feedback?: string) => {
+      if (!sessionId) return;
+      setIsBusy(true);
+      try {
+        const res = await api.generateBuildPrompts(sessionId, provider, feedback, selection);
+        setDoc("buildPrompts", {
+          status: "locked",
+          data: res.build_prompts,
+          staleDueTo: undefined,
+          justRegeneratedWithFeedback: !!feedback,
+        });
+        setActiveDoc("buildPrompts");
+        appendMessage("assistant", "Here are the Build Prompts — download the PDFs from the Artifacts panel.");
+      } catch {
+        appendMessage("assistant", "Failed to generate the Build Prompts. Please try again.");
       } finally {
         setIsBusy(false);
       }
@@ -333,7 +359,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
               ? res.doc_b
               : activeDoc === "docC"
                 ? res.doc_c
-                : res.html;
+                : activeDoc === "buildPrompts"
+                  ? res.build_prompts
+                  : res.html;
 
         if (docData) {
           setDoc(activeDoc, {
@@ -392,6 +420,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       generateDocB,
       generateDocC,
       generatePoc,
+      generateBuildPrompts,
       chatEdit,
     }),
     [
@@ -418,6 +447,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       generateDocB,
       generateDocC,
       generatePoc,
+      generateBuildPrompts,
       chatEdit,
     ]
   );

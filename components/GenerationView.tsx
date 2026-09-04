@@ -95,6 +95,7 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
     if (type === "docA") return !!s.doc_a;
     if (type === "docB") return !!s.doc_b;
     if (type === "docC") return !!s.doc_c;
+    if (type === "buildPrompts") return !!s.build_prompts;
     return !!s.poc_html;
   };
 
@@ -122,6 +123,9 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
       } else if (type === "docC") {
         const res = await api.generateDocC(session.id, session.provider, feedback);
         setSession((prev) => (prev ? { ...prev, doc_c: res.doc_c } : prev));
+      } else if (type === "buildPrompts") {
+        const res = await api.generateBuildPrompts(session.id, session.provider, feedback);
+        setSession((prev) => (prev ? { ...prev, build_prompts: res.build_prompts } : prev));
       } else {
         const res = await api.generatePoc(session.id, session.provider, feedback);
         setSession((prev) => (prev ? { ...prev, poc_html: res.html } : prev));
@@ -188,7 +192,9 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
           ? session.doc_c
           : activeArtifact === "poc"
             ? session.poc_html
-            : null;
+            : activeArtifact === "buildPrompts"
+              ? session.build_prompts
+              : null;
 
   const activeStaleDueTo = activeArtifact ? staleDueTo[activeArtifact] : undefined;
 
@@ -254,6 +260,7 @@ export default function GenerationView({ sessionId }: { sessionId: string }) {
               <StatusPill label="Doc B" status={session.doc_b ? "locked" : "not_generated"} />
               <StatusPill label="Doc C" status={session.doc_c ? "locked" : "not_generated"} />
               <StatusPill label="POC" status={session.poc_html ? "locked" : "not_generated"} />
+              <StatusPill label="Build Prompts" status={session.build_prompts ? "locked" : "not_generated"} />
             </div>
 
             {session.combined_text && (

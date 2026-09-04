@@ -10,6 +10,7 @@ const actionLabels: Record<MessageAction["kind"], string> = {
   generate_doc_b: "Generate UX & Flow Doc",
   generate_doc_c: "Generate Architecture Doc",
   generate_poc: "Generate POC",
+  generate_build_prompts: "Generate Build Prompts",
   open_doc: "Open Document",
 };
 
@@ -18,6 +19,7 @@ const openLabels: Partial<Record<MessageAction["kind"], string>> = {
   generate_doc_b: "Open UX & Flow Doc",
   generate_doc_c: "Open Architecture Doc",
   generate_poc: "Open POC",
+  generate_build_prompts: "Open Build Prompts",
 };
 
 const docTypeForAction: Partial<Record<MessageAction["kind"], DocType>> = {
@@ -25,11 +27,20 @@ const docTypeForAction: Partial<Record<MessageAction["kind"], DocType>> = {
   generate_doc_b: "docB",
   generate_doc_c: "docC",
   generate_poc: "poc",
+  generate_build_prompts: "buildPrompts",
 };
 
 export default function MessageBubble({ message }: { message: ChatMessage }) {
-  const { docs, generateDiscovery, generateDocB, generateDocC, generatePoc, openDoc, isBusy } =
-    useSession();
+  const {
+    docs,
+    generateDiscovery,
+    generateDocB,
+    generateDocC,
+    generatePoc,
+    generateBuildPrompts,
+    openDoc,
+    isBusy,
+  } = useSession();
 
   const runAction = (action: MessageAction) => {
     const docType = docTypeForAction[action.kind];
@@ -48,6 +59,8 @@ export default function MessageBubble({ message }: { message: ChatMessage }) {
         return generateDocC();
       case "generate_poc":
         return generatePoc();
+      case "generate_build_prompts":
+        return generateBuildPrompts();
       case "open_doc":
         return openDoc(action.docType);
       default:
